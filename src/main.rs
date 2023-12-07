@@ -2,6 +2,9 @@ use bevy::diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin};
 use bevy::{math::*, prelude::*};
 use rand::{thread_rng, Rng};
 
+mod shader_instancing;
+use shader_instancing::BoidsComputePlugin;
+//mod shader_instancing;
 pub const HEIGHT: f32 = 720.0;
 pub const WIDTH: f32 = 1080.0;
 
@@ -10,6 +13,7 @@ fn main() {
         .add_plugins(DefaultPlugins)
         .add_plugins(LogDiagnosticsPlugin::default())
         .add_plugins(FrameTimeDiagnosticsPlugin::default())
+        .add_plugins(BoidsComputePlugin)
         .add_systems(Update, bevy::window::close_on_esc)
         .add_systems(Startup, setup)
         .add_systems(Update, apply_velocity)
