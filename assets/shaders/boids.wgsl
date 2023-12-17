@@ -113,11 +113,11 @@ fn main(@builtin(global_invocation_id) invocation_id: vec3<u32>) {
     if (vPos.y > 1.0) {
         vPos.y = -1.0 + (vPos.y - 1.0);
     }
+    if (vPos.z < -1.0) {
+        vPos.z = 1.0 + (vPos.z + 1.0);
+    }
     if (vPos.z > 1.0) {
         vPos.z = -1.0 + (vPos.z - 1.0);
-    }
-    if (vPos.z < -1.0) {
-        vPos.z = 1.0 + (vPos.z - 1.0);
     }
 
     // Write back
