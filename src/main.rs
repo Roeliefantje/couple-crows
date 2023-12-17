@@ -1,199 +1,190 @@
+//! Example showing how to calculate boids data from compute shaders
+//! For now they are stupid and just fly straight, need to fix this later on.
+//! Reimplementation of https://github.com/gfx-rs/wgpu-rs/blob/master/examples/boids/main.rs
+
 use bevy::diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin};
-use bevy::{math::*, prelude::*};
-use rand::{thread_rng, Rng};
 
-mod shader_instancing;
-use shader_instancing::BoidsComputePlugin;
-//mod shader_instancing;
-pub const HEIGHT: f32 = 720.0;
-pub const WIDTH: f32 = 1080.0;
+use bevy::{
+    core::Pod,
+    prelude::*,
+};
 
+use bevy_app_compute::prelude::*;
+use bytemuck::Zeroable;
+
+use rand::distributions::{Distribution, Uniform};
+
+const NUM_BOIDS: u32 = 10000;
+
+// Boid struct that gets transfered over to the compute shader which includes all the information needed for the computation.
+#[derive(ShaderType, Pod, Zeroable, Clone, Copy)]
+#[repr(C)]
+struct Boid {
+    pos: Vec4,
+    vel: Vec4,
+}
+
+// Params we can set in order to change the behaviour of the compute shader.
+#[derive(ShaderType, Pod, Zeroable, Clone, Copy)]
+#[repr(C)]
+struct Params {
+    speed: f32,
+    seperation_distance: f32,
+    alignment_distance: f32,
+    cohesion_distance: f32,
+    seperation_scale: f32,
+    alignment_scale: f32,
+    cohesion_scale: f32,
+}
+
+//Identifier in order to link the boids data to a texture.
+#[derive(Component)]
+struct BoidEntity(pub usize);
+
+//The bundle that gets spawned in with the texture / mesh of the boid
+#[derive(Bundle)]
+struct CrowBundle {
+    pbr: PbrBundle,
+    boid_entity: BoidEntity,
+}
+
+//Main, adding some useful plugins that allow for some easy logging.
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         .add_plugins(LogDiagnosticsPlugin::default())
         .add_plugins(FrameTimeDiagnosticsPlugin::default())
-        .add_plugins(BoidsComputePlugin)
-        .add_systems(Update, bevy::window::close_on_esc)
+        .add_plugins(AppComputePlugin)
+        .add_plugins(AppComputeWorkerPlugin::<BoidWorker>::default())
+        .insert_resource(ClearColor(Color::DARK_GRAY))
         .add_systems(Startup, setup)
-        .add_systems(Update, apply_velocity)
-        .add_systems(Update, crow_behaviour)
-        .add_systems(Update, borders)
-        .run();
+        .add_systems(Update, move_entities)
+        .run()
 }
 
-#[derive(Component)]
-struct Crow {
-    vel: Vec3,
-}
-
-impl Default for Crow {
-    fn default() -> Self {
-        let mut rng = thread_rng();
-
-        let x_coords = rng.gen_range(0..200) as f32 / 100.0;
-        let y_coords = rng.gen_range(0..200) as f32 / 100.0;
-        let z_coords = rng.gen_range(0..200) as f32 / 100.0;
-        Self {
-            vel: Vec3::new(x_coords, y_coords, z_coords).normalize(),
-        }
-    }
-}
-
-#[derive(Bundle)]
-struct CrowBundle {
-    pbr: PbrBundle,
-    crow: Crow,
-}
-
-impl Default for CrowBundle {
-    fn default() -> Self {
-        Self {
-            pbr: PbrBundle::default(),
-            crow: Crow::default(),
-        }
-    }
-}
-
+//The main setup of the program. Basically just creates all the (World) boids and the setup for the camera.
+//So it does not create the position etc, but it it creates the mesh for them and has a unique idx we use to transfer the boids data.
 fn setup(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
-    // Camera
+
+
     commands.spawn(Camera3dBundle {
         transform: Transform::from_xyz(-20., 5., 0.).looking_at(Vec3::ZERO, Vec3::Y),
         ..default()
     });
+    
+    let mut all_boids: Vec<CrowBundle> = Vec::with_capacity(NUM_BOIDS as usize);
+    let boid_mesh = meshes.add(Mesh::from(shape::Cube {size: 0.1})); 
+    let boid_material = materials.add(Color::ANTIQUE_WHITE.into());
 
-    //paddle
-    let size: usize = 1000;
-    let mut all_cubes: Vec<CrowBundle> = Vec::with_capacity(size);
-    let mut rng = thread_rng();
-
-    for _ in 0..size {
-        let x_coords = rng.gen_range(-10000..10000) as f32 / 1000.0;
-        let y_coords = rng.gen_range(-10000..10000) as f32 / 1000.0;
-        let z_coords = rng.gen_range(-10000..10000) as f32 / 1000.0;
-        let cube = CrowBundle {
+    for i in 0..NUM_BOIDS {
+        let crow = CrowBundle {
             pbr: PbrBundle {
-                mesh: meshes.add(Mesh::from(shape::Cube { size: 0.1 })),
-                material: materials.add(Color::rgb_u8(124, 144, 166).into()),
-                transform: Transform::from_xyz(x_coords, y_coords, z_coords),
-                ..default()
+                mesh: boid_mesh.clone(),
+                material: boid_material.clone(),
+                ..Default::default()
             },
-            ..default()
+            boid_entity: BoidEntity(i as usize)
         };
-        all_cubes.push(cube)
+        all_boids.push(crow);
     }
-    commands.spawn_batch(all_cubes);
+
+    commands.spawn_batch(all_boids);
+
 }
 
-fn rotate(mut query: Query<&mut Transform, With<Crow>>, time: Res<Time>) {
-    for mut transform in &mut query {
-        transform.rotate_y(time.delta_seconds() / 2.)
-    }
-}
 
-fn borders(mut query: Query<&mut Transform, With<Crow>>) {
-    for mut transform in query.iter_mut() {
-        if transform.translation.x < -10. {
-            transform.translation.x = 10.;
-        }
-        if transform.translation.x > 10. {
-            transform.translation.x = -10.;
-        }
 
-        if transform.translation.y < -10. {
-            transform.translation.y = 10.;
-        }
-        if transform.translation.y > 10. {
-            transform.translation.y = -10.;
-        }
-        if transform.translation.z < -10. {
-            transform.translation.z = 10.;
-        }
-        if transform.translation.z > 10. {
-            transform.translation.z = -10.;
-        }
+//This part is to use the boids shader. I am using a plugin I found that helps with a lot of the boilerplate code
+//It took quite some time to get this working, but it turns out the float3 does not align properly (which is why we are using vec4 for the boid information)
+//https://github.com/Kjolnyr/bevy_app_compute
+#[derive(TypeUuid)]
+#[uuid = "2545ae14-a9bc-4f03-9ea4-4eb43d1075a7"]
+struct BoidsShader;
+
+impl ComputeShader for BoidsShader {
+    fn shader() -> ShaderRef {
+        "shaders/boids.wgsl".into()
     }
 }
 
-fn apply_velocity(mut query: Query<(&mut Transform, &Crow)>, time: Res<Time>) {
-    for (mut transform, crow) in query.iter_mut() {
-        //transform.translation += crow.vel * time.delta_seconds();
-        let new_pos = transform.translation + crow.vel * time.delta_seconds();
-        transform.look_at(new_pos, Vec3::Y);
-        transform.translation = new_pos;
-        //println!("{}", crow.vel);
+struct BoidWorker;
+
+//This is what instantiates the compute shader and sets it up to be ran every fram.e
+//We use 2 buffers for the boids in order to ensure behaviour is the same every time.
+impl ComputeWorker for BoidWorker {
+    fn build(world: &mut World) -> AppComputeWorker<Self> {
+        let params = Params {
+            speed: 0.7,
+            seperation_distance: 0.1,
+            alignment_distance: 0.1,
+            cohesion_distance: 0.1,
+            seperation_scale: 1.,
+            alignment_scale: 1.,
+            cohesion_scale: 1.,
+        };
+
+        let mut initial_boids_data: Vec<Boid> = Vec::with_capacity(NUM_BOIDS as usize);
+        let mut rng = rand::thread_rng();
+        let unif = Uniform::new_inclusive(-1., 1.);
+
+        for _ in 0..NUM_BOIDS {
+            initial_boids_data.push(Boid {
+                pos: Vec4::new(
+                    unif.sample(&mut rng) as f32,
+                    unif.sample(&mut rng) as f32,
+                    unif.sample(&mut rng) as f32,
+                    0.),
+                vel: Vec4::new(
+                    unif.sample(&mut rng) as f32,
+                    unif.sample(&mut rng) as f32,
+                    unif.sample(&mut rng) as f32,
+                    0.)
+            });
+        }
+
+        AppComputeWorkerBuilder::new(world)
+            .add_uniform("params", &params)
+            .add_uniform("delta_time", &0.004f32)
+            .add_staging("boids_src", &initial_boids_data)
+            .add_staging("boids_dst", &initial_boids_data)
+            .add_pass::<BoidsShader>(
+                [NUM_BOIDS, 1, 1],
+                &["params", "delta_time", "boids_src", "boids_dst"],
+            )
+            .add_swap("boids_src", "boids_dst")
+            .build()
     }
 }
 
-fn crow_behaviour(
-    mut query: Query<(&Transform, &mut Crow)>,
-    others: Query<&Transform, With<Crow>>,
+
+
+//This function reads the data from the compute shader and applies them to the crows rendered on the screen.
+fn move_entities(
+    time: Res<Time>,
+    mut worker: ResMut<AppComputeWorker<BoidWorker>>,
+    mut q_boid: Query<(&mut Transform, &BoidEntity), With<BoidEntity>>,
 ) {
-    for (transform, mut crow) in query.iter_mut() {
-        let seperation = calculate_seperation(&transform, &others);
-        let alignment = calculate_alignment(&transform, &others);
-        let cohesion = calculate_cohesion(&transform, &others);
-        //for other_transform in others.iter(){
-        //    let diff = transform.translation.distance(other_transform.translation);
-        //    println!("Difference: {}", diff);
-        //}
-        //println!("Seperation {}, Alignment {}, Cohesion{}", seperation, alignment, cohesion);
-        crow.vel += seperation + alignment + cohesion;
-
-        crow.vel = crow.vel.normalize() * 2.0;
-    }
-}
-
-const SEPERATION_RADIUS: f32 = 1.2;
-const VISION_RADIUS: f32 = 3.0;
-
-fn calculate_seperation(boid: &Transform, others: &Query<&Transform, With<Crow>>) -> Vec3 {
-    let mut total_seperation: Vec3 = Vec3::ZERO;
-
-    for other_crows in others.iter() {
-        let diff: f32 = boid.translation.distance(other_crows.translation);
-
-        if diff != 0.0 && diff < SEPERATION_RADIUS {
-            let direction = (other_crows.translation - boid.translation).normalize() * -1.;
-
-            total_seperation += direction * (1.0 / diff);
-        }
+    if !worker.ready() {
+        return;
     }
 
-    total_seperation
-}
+    let boids: Vec<Boid> = worker.read_vec::<Boid>("boids_dst");
+    worker.write("delta_time", &time.delta_seconds());
+    q_boid
+        .par_iter_mut()
+        .for_each(|(mut transform, boid_entity)| {
+            let world_pos = Vec3::new(
+                20. * (boids[boid_entity.0].pos.x),
+                20. * (boids[boid_entity.0].pos.y),
+                20. * (boids[boid_entity.0].pos.z)
+            );
+            
+            transform.look_at(world_pos, Vec3::Y);
+            transform.translation = world_pos;
 
-fn calculate_alignment(boid: &Transform, others: &Query<&Transform, With<Crow>>) -> Vec3 {
-    let mut total_alignment: Vec3 = Vec3::ZERO;
-
-    for other_crows in others.iter() {
-        let diff: f32 = boid.translation.distance(other_crows.translation);
-
-        if diff != 0.0 && diff < VISION_RADIUS {
-            let direction = other_crows.forward();
-            total_alignment += direction;
-        }
-    }
-
-    total_alignment.normalize_or_zero()
-}
-
-fn calculate_cohesion(boid: &Transform, others: &Query<&Transform, With<Crow>>) -> Vec3 {
-    let mut average_position: Vec3 = Vec3::ZERO;
-    let mut count: u16 = 0;
-    for other_crows in others.iter() {
-        let diff: f32 = boid.translation.distance(other_crows.translation);
-
-        if diff != 0.0 && diff < VISION_RADIUS {
-            count += 1;
-            average_position += other_crows.translation;
-        }
-    }
-    average_position /= count as f32;
-
-    (average_position - boid.translation).normalize_or_zero()
+        });
 }
