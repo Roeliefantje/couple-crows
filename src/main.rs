@@ -5,6 +5,7 @@ use std::f32::consts::PI;
 use bevy::{pbr::CascadeShadowConfigBuilder, prelude::*};
 use bevy::prelude::*;
 use bevy_panorbit_camera::{PanOrbitCamera, PanOrbitCameraPlugin};
+use std::{thread, time};
 // use bevy_debug_camera::{DebugCamera, DebugCameraPlugin};
 
 pub const HEIGHT: f32 = 720.0;
@@ -66,8 +67,11 @@ pub struct Animations(Vec<Handle<AnimationClip>>);
 
 
 pub fn run_animation(animations : Res<Animations>, mut players_query : Query<&mut AnimationPlayer, Added<AnimationPlayer>>){
+    let mut rng = thread_rng();
     for mut player in &mut players_query{
-        player.play(animations.0[0].clone_weak()).repeat();
+        player.play(animations.0[0].clone()).repeat();
+        player.seek_to(rng.gen_range(0..10000) as f32 / 10000.0);
+        player.set_speed((rng.gen_range(0..5000) as f32 / 10000.0) + 1.0);
     }
 }
 
@@ -113,7 +117,7 @@ fn setup(
     // direction light (sun)
     commands.spawn(DirectionalLightBundle {
         directional_light: DirectionalLight {
-            illuminance: 10000.,
+            illuminance: 20000.,
             shadows_enabled: true,
             ..default()
         },
@@ -244,7 +248,7 @@ fn calculate_seperation(boid: &Transform, others: &Query<&Transform, With<Crow>>
         }
     }
 
-    total_seperation
+    total_seperation.normalize_or_zero()
 }
 
 fn calculate_alignment(boid: &Transform, others: &Query<&Transform, With<Crow>>) -> Vec3 {
