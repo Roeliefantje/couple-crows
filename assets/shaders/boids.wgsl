@@ -65,7 +65,7 @@ fn main(@builtin(global_invocation_id) invocation_id: vec3<u32>) {
         let dst = distance(pos, vPos);
 
         if (dst < params.seperationDistance) {
-            total_seperation += normalize(vPos - pos) / dst;
+            total_seperation += normalize(pos - vPos) * f32(-1) / dst;
         }
         if (dst < params.alignmentDistance) {
             total_alignment += vel;
@@ -86,7 +86,10 @@ fn main(@builtin(global_invocation_id) invocation_id: vec3<u32>) {
     }
 
     if (cohesionCount > 0) {
+        //Average position of the nearby crows
         total_cohesion /= f32(cohesionCount);
+        //Turn that into a velocity vector from the Boid we are calculating.
+        total_cohesion -= vPos;
     }
 
     vVel = vVel + (total_seperation * params.seperationScale) +
@@ -103,21 +106,27 @@ fn main(@builtin(global_invocation_id) invocation_id: vec3<u32>) {
     // Wrap around boundary
     if (vPos.x < -1.0) {
         vPos.x = 1.0 + (1.0 + vPos.x);
+        vPos.x = 1.0;
     }
     if (vPos.x > 1.0) {
         vPos.x = -1.0 + (vPos.x - 1.0);
+        vPos.x = -1.0;
     }
     if (vPos.y < -1.0) {
         vPos.y = 1.0 + (1.0 + vPos.y);
+        vPos.y = 1.0;
     }
     if (vPos.y > 1.0) {
         vPos.y = -1.0 + (vPos.y - 1.0);
+        vPos.y = -1.0;
     }
     if (vPos.z < -1.0) {
         vPos.z = 1.0 + (vPos.z + 1.0);
+        vPos.z = 1.0;
     }
     if (vPos.z > 1.0) {
-        vPos.z = -1.0 + (vPos.z - 1.0);
+        //vPos.z = -1.0 + (vPos.z - 1.0);
+        vPos.z = -1.0;
     }
 
     // Write back

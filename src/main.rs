@@ -119,7 +119,7 @@ impl ComputeWorker for BoidWorker {
     fn build(world: &mut World) -> AppComputeWorker<Self> {
         let params = Params {
             speed: 0.7,
-            seperation_distance: 0.1,
+            seperation_distance: 0.03,
             alignment_distance: 0.1,
             cohesion_distance: 0.1,
             seperation_scale: 1.,
