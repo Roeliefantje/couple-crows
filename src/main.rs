@@ -52,13 +52,13 @@ impl Grid {
         }
     }
     //Add a crow to the grid by its transform centered around (0,0,0)
-    fn Add (&mut self, transform: &Transform, crow: &Crow) {
+    fn Add (&mut self, transform: Transform, crow: Crow) {
         //Convert the possible negative coordinates to positive 
         //meaning that negative coordinates are between 0 and size/2 
         //and positive coordinates are between size/2 and size 
-        let x = (transform.translation.x.abs() + if transform.translation.x < 0 {0} else {self.size/2}) as usize;
-        let y = (transform.translation.y.abs() + if transform.translation.y < 0 {0} else {self.size/2}) as usize;
-        let z = (transform.translation.z.abs() + if transform.translation.z < 0 {0} else {self.size/2}) as usize;
+        let x = (transform.translation.x.abs() + if transform.translation.x < 0.0 {0.0} else {self.size as f32 / 2.0}) as usize;
+        let y = (transform.translation.y.abs() + if transform.translation.y < 0.0 {0.0} else {self.size as f32 / 2.0}) as usize;
+        let z = (transform.translation.z.abs() + if transform.translation.z < 0.0 {0.0} else {self.size as f32 / 2.0}) as usize;
         self.grid[x][y][z].crows.push((transform, crow));
     }
     //Update the grid by reevaluating the position of all crows
