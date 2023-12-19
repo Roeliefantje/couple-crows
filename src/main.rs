@@ -1,9 +1,13 @@
 use bevy::diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin};
-use bevy::{math::*, prelude::*};
+use bevy::{gizmos, math::*, prelude::*};
 use rand::{thread_rng, Rng};
+use std::f32::consts::PI;
+use bevy::{pbr::CascadeShadowConfigBuilder, prelude::*};
 
 pub const HEIGHT: f32 = 720.0;
 pub const WIDTH: f32 = 1080.0;
+
+pub const BOX_SIZE: f32 = 20.;
 
 fn main() {
     App::new()
@@ -12,6 +16,8 @@ fn main() {
         .add_plugins(FrameTimeDiagnosticsPlugin::default())
         .add_systems(Update, bevy::window::close_on_esc)
         .add_systems(Startup, setup)
+        
+        .add_systems(Update, system)
         .add_systems(Update, apply_velocity)
         .add_systems(Update, crow_behaviour)
         .add_systems(Update, borders)
@@ -58,9 +64,56 @@ fn setup(
 ) {
     // Camera
     commands.spawn(Camera3dBundle {
-        transform: Transform::from_xyz(-20., 5., 0.).looking_at(Vec3::ZERO, Vec3::Y),
+        transform: Transform::from_xyz(-30., 5., 0.).looking_at(Vec3::ZERO, Vec3::Y),
         ..default()
     });
+
+    // plane
+    commands.spawn(PbrBundle {
+        mesh: meshes.add(Mesh::from(shape::Plane::from_size(BOX_SIZE*2.))),
+        material: materials.add(Color::rgb(0.3, 0.9, 0.3).into()),
+        transform: Transform::from_xyz(0., -BOX_SIZE*0.5, 0.),
+        ..default()
+    });
+
+    // testing cube (delete later)
+    commands.spawn(PbrBundle {
+        mesh: meshes.add(Mesh::from(shape::Cube { size: 4. })),
+        material: materials.add(Color::rgb(0.8, 0.7, 0.6).into()),
+        transform: Transform::from_xyz(0.0, 0., 0.0),
+        ..default()
+    });
+    
+    // ambient light
+    commands.insert_resource(AmbientLight {
+        color: Color::WHITE,
+        brightness: 0.1,
+    });
+
+    // direction light (sun)
+    commands.spawn(DirectionalLightBundle {
+        directional_light: DirectionalLight {
+            illuminance: 10000.,
+            shadows_enabled: true,
+            ..default()
+        },
+        transform: Transform {
+            translation: Vec3::new(0.0, 2.0, 0.0),
+            rotation: Quat::from_rotation_x(-PI / 4.),
+            ..default()
+        },
+        // The default cascade config is designed to handle large scenes.
+        // As this example has a much smaller world, we can tighten the shadow
+        // bounds for better visual quality.
+        cascade_shadow_config: CascadeShadowConfigBuilder {
+            first_cascade_far_bound: 4.0,
+            maximum_distance: 100.0,
+            ..default()
+        }
+        .into(),
+        ..default()
+    });
+
 
     //paddle
     let size: usize = 1000;
@@ -85,11 +138,21 @@ fn setup(
     commands.spawn_batch(all_cubes);
 }
 
-fn rotate(mut query: Query<&mut Transform, With<Crow>>, time: Res<Time>) {
-    for mut transform in &mut query {
-        transform.rotate_y(time.delta_seconds() / 2.)
-    }
+
+
+fn system(mut gizmos: Gizmos) {
+    gizmos.cuboid(
+
+        Transform::from_xyz(0., 0., 0.).with_scale(Vec3::splat(BOX_SIZE)),
+        Color::GREEN,
+    );
 }
+
+// fn rotate(mut query: Query<&mut Transform, With<Crow>>, time: Res<Time>) {
+//     for mut transform in &mut query {
+//         transform.rotate_y(time.delta_seconds() / 2.)
+//     }
+// }
 
 fn borders(mut query: Query<&mut Transform, With<Crow>>) {
     for mut transform in query.iter_mut() {
