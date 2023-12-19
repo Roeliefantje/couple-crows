@@ -3,6 +3,9 @@ use bevy::{gizmos, math::*, prelude::*};
 use rand::{thread_rng, Rng};
 use std::f32::consts::PI;
 use bevy::{pbr::CascadeShadowConfigBuilder, prelude::*};
+use bevy::prelude::*;
+use bevy_panorbit_camera::{PanOrbitCamera, PanOrbitCameraPlugin};
+// use bevy_debug_camera::{DebugCamera, DebugCameraPlugin};
 
 pub const HEIGHT: f32 = 720.0;
 pub const WIDTH: f32 = 1080.0;
@@ -14,6 +17,7 @@ fn main() {
         .add_plugins(DefaultPlugins)
         .add_plugins(LogDiagnosticsPlugin::default())
         .add_plugins(FrameTimeDiagnosticsPlugin::default())
+        .add_plugins(PanOrbitCameraPlugin)
         .add_systems(Update, bevy::window::close_on_esc)
         .add_systems(Startup, setup)
         
@@ -62,11 +66,16 @@ fn setup(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
-    // Camera
-    commands.spawn(Camera3dBundle {
-        transform: Transform::from_xyz(-30., 5., 0.).looking_at(Vec3::ZERO, Vec3::Y),
-        ..default()
-    });
+
+    // Flying Camera
+    commands.spawn((
+        Camera3dBundle {
+            transform: Transform::from_translation(Vec3::new(0.0, 1.5, 5.0)),
+            ..default()
+        },
+        PanOrbitCamera::default(),
+    ));
+
 
     // plane
     commands.spawn(PbrBundle {
@@ -77,12 +86,12 @@ fn setup(
     });
 
     // testing cube (delete later)
-    commands.spawn(PbrBundle {
-        mesh: meshes.add(Mesh::from(shape::Cube { size: 4. })),
-        material: materials.add(Color::rgb(0.8, 0.7, 0.6).into()),
-        transform: Transform::from_xyz(0.0, 0., 0.0),
-        ..default()
-    });
+    // commands.spawn(PbrBundle {
+    //     mesh: meshes.add(Mesh::from(shape::Cube { size: 4. })),
+    //     material: materials.add(Color::rgb(0.8, 0.7, 0.6).into()),
+    //     transform: Transform::from_xyz(0.0, 0., 0.0),
+    //     ..default()
+    // });
     
     // ambient light
     commands.insert_resource(AmbientLight {
@@ -113,6 +122,7 @@ fn setup(
         .into(),
         ..default()
     });
+
 
 
     //paddle
