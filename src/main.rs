@@ -1,5 +1,6 @@
 use bevy::diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin};
 use bevy::{math::*, prelude::*};
+use nalgebra::ComplexField;
 use rand::{thread_rng, Rng};
 
 pub const HEIGHT: f32 = 720.0;
@@ -16,6 +17,54 @@ fn main() {
         .add_systems(Update, crow_behaviour)
         .add_systems(Update, borders)
         .run();
+}
+
+#[derive(Resource)]
+
+//Grid struct to store all crows in a grid, Grid is always centered at 0,0,0
+struct Grid {
+    grid: Vec<Vec<Vec<GridCell>>>,
+    size: usize,
+}
+
+struct GridCell {
+    crows: Vec<(Transform,Crow)>,
+}
+
+impl Grid {
+    //Create new grid with size*size*size, size must be even
+    fn New (size: usize) -> Self {
+        let mut grid = Vec::with_capacity(size);
+        for x in 0..size {
+            let mut grid_x = Vec::with_capacity(size);
+            for y in 0..size {
+                let mut grid_y = Vec::with_capacity(size);
+                for z in 0..size {
+                    grid_y.push(GridCell{crows: Vec::new()});
+                }
+                grid_x.push(grid_y);
+            }
+            grid.push(grid_x);
+        }
+        Self {
+            grid,
+            size,
+        }
+    }
+    //Add a crow to the grid by its transform centered around (0,0,0)
+    fn Add (&mut self, transform: &Transform, crow: &Crow) {
+        //Convert the possible negative coordinates to positive 
+        //meaning that negative coordinates are between 0 and size/2 
+        //and positive coordinates are between size/2 and size 
+        let x = (transform.translation.x.abs() + if transform.translation.x < 0 {0} else {self.size/2}) as usize;
+        let y = (transform.translation.y.abs() + if transform.translation.y < 0 {0} else {self.size/2}) as usize;
+        let z = (transform.translation.z.abs() + if transform.translation.z < 0 {0} else {self.size/2}) as usize;
+        self.grid[x][y][z].crows.push((transform, crow));
+    }
+    //Update the grid by reevaluating the position of all crows
+    fn Update (&mut self) {
+        
+    }
 }
 
 #[derive(Component)]
