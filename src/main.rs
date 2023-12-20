@@ -10,11 +10,14 @@ use bevy::{
 };
 
 use bevy_app_compute::prelude::*;
+use bevy_panorbit_camera::{PanOrbitCamera, PanOrbitCameraPlugin};
 use bytemuck::Zeroable;
 
 use rand::distributions::{Distribution, Uniform};
 
 const NUM_BOIDS: u32 = 10000;
+
+pub const BOX_SIZE: f32 = 40.;
 
 // Boid struct that gets transfered over to the compute shader which includes all the information needed for the computation.
 #[derive(ShaderType, Pod, Zeroable, Clone, Copy)]
@@ -44,7 +47,7 @@ struct BoidEntity(pub usize);
 //The bundle that gets spawned in with the texture / mesh of the boid
 #[derive(Bundle)]
 struct CrowBundle {
-    pbr: PbrBundle,
+    pbr: SceneBundle,
     boid_entity: BoidEntity,
 }
 
@@ -56,9 +59,11 @@ fn main() {
         .add_plugins(FrameTimeDiagnosticsPlugin::default())
         .add_plugins(AppComputePlugin)
         .add_plugins(AppComputeWorkerPlugin::<BoidWorker>::default())
+        .add_plugins(PanOrbitCameraPlugin)
         .insert_resource(ClearColor(Color::DARK_GRAY))
         .add_systems(Startup, setup)
         .add_systems(Update, move_entities)
+        .add_systems(Update, system)
         .run()
 }
 
@@ -68,24 +73,44 @@ fn setup(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
+    asset_server: Res<AssetServer>
 ) {
 
+    //Flying Camera
+    commands.spawn((
+        Camera3dBundle {
+            transform: Transform::from_translation(Vec3::new(0.0, 1.5, 5.0)),
+            ..default()
+        },
+        PanOrbitCamera::default(),
+    ));
 
-    commands.spawn(Camera3dBundle {
-        transform: Transform::from_xyz(-20., 5., 0.).looking_at(Vec3::ZERO, Vec3::Y),
+    // plane
+    commands.spawn(PbrBundle {
+        mesh: meshes.add(Mesh::from(shape::Plane::from_size(BOX_SIZE*2.))),
+        material: materials.add(Color::rgb(0.3, 0.9, 0.3).into()),
+        transform: Transform::from_xyz(0., -BOX_SIZE*0.5, 0.),
         ..default()
     });
-    
+
+    // ambient light
+    commands.insert_resource(AmbientLight {
+        color: Color::WHITE,
+        brightness: 0.1,
+    });
+
+
     let mut all_boids: Vec<CrowBundle> = Vec::with_capacity(NUM_BOIDS as usize);
-    let boid_mesh = meshes.add(Mesh::from(shape::Cube {size: 0.1})); 
-    let boid_material = materials.add(Color::ANTIQUE_WHITE.into());
+    //let boid_mesh = meshes.add(Mesh::from(shape::Cube {size: 0.1})); 
+    //let boid_material = materials.add(Color::ANTIQUE_WHITE.into());
 
     for i in 0..NUM_BOIDS {
         let crow = CrowBundle {
-            pbr: PbrBundle {
-                mesh: boid_mesh.clone(),
-                material: boid_material.clone(),
-                ..Default::default()
+            pbr: SceneBundle {
+                scene: asset_server.load("objects/crow1.glb#Scene0"),
+                transform: Transform::from_xyz(0., 0., 0.)
+                .with_scale(Vec3::splat(0.02)),
+                ..default()
             },
             boid_entity: BoidEntity(i as usize)
         };
@@ -122,7 +147,7 @@ impl ComputeWorker for BoidWorker {
             seperation_distance: 0.03,
             alignment_distance: 0.1,
             cohesion_distance: 0.1,
-            seperation_scale: 1.,
+            seperation_scale: 0.4,
             alignment_scale: 1.,
             cohesion_scale: 1.,
         };
@@ -187,4 +212,12 @@ fn move_entities(
             transform.translation = world_pos;
 
         });
+}
+
+fn system(mut gizmos: Gizmos) {
+    gizmos.cuboid(
+
+        Transform::from_xyz(0., 0., 0.).with_scale(Vec3::splat(BOX_SIZE)),
+        Color::GREEN,
+    );
 }
