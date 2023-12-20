@@ -60,7 +60,19 @@ impl Grid {
             cell_size,
         }
     }
+
     //Add a crow to the grid by its transform centered around (0,0,0)
+    fn add_with_transform (&mut self, transform: &Transform, entity_id : Entity) {
+        //Convert the possible negative coordinates to positive 
+        //meaning that negative coordinates are between 0 and size/2 
+        //and positive coordinates are between size/2 and size 
+        let x = self.cooridnate_to_grid_coordinate(transform.translation.x);
+        let y = self.cooridnate_to_grid_coordinate(transform.translation.y);
+        let z = self.cooridnate_to_grid_coordinate(transform.translation.z);
+        self.grid[x][y][z].crows.push(entity_id);
+    }
+
+    //Add a crow to the grid by its transform centered around (0,0,0) gotten from a query
     fn add (&mut self, query: Query<&Transform>, entity_id : Entity) {
         //Convert the possible negative coordinates to positive 
         //meaning that negative coordinates are between 0 and size/2 
@@ -171,27 +183,32 @@ fn setup(
         ..default()
     });
 
+    // Grid
+    let mut grid = Grid::new(20, 1.0);
+
     //paddle
     let size: usize = 1000;
-    let mut all_cubes: Vec<CrowBundle> = Vec::with_capacity(size);
     let mut rng = thread_rng();
 
     for _ in 0..size {
         let x_coords = rng.gen_range(-10000..10000) as f32 / 1000.0;
         let y_coords = rng.gen_range(-10000..10000) as f32 / 1000.0;
         let z_coords = rng.gen_range(-10000..10000) as f32 / 1000.0;
+        let transform = Transform::from_xyz(x_coords, y_coords, z_coords);
         let cube = CrowBundle {
             pbr: PbrBundle {
                 mesh: meshes.add(Mesh::from(shape::Cube { size: 0.1 })),
                 material: materials.add(Color::rgb_u8(124, 144, 166).into()),
-                transform: Transform::from_xyz(x_coords, y_coords, z_coords),
+                transform,
                 ..default()
             },
             ..default()
         };
-        all_cubes.push(cube)
+        let entity_id = commands.spawn(cube).id();
+        grid.add_with_transform(&transform, entity_id);
     }
-    commands.spawn_batch(all_cubes);
+    
+    commands.insert_resource(grid);
 }
 
 fn rotate(mut query: Query<&mut Transform, With<Crow>>, time: Res<Time>) {
