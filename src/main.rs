@@ -6,11 +6,10 @@ use bevy::{pbr::CascadeShadowConfigBuilder, prelude::*};
 use bevy::prelude::*;
 use bevy_panorbit_camera::{PanOrbitCamera, PanOrbitCameraPlugin};
 use std::{thread, time};
-// use bevy_debug_camera::{DebugCamera, DebugCameraPlugin};
+//use bevy_debug_camera::{DebugCamera, DebugCameraPlugin};
 
 pub const HEIGHT: f32 = 720.0;
 pub const WIDTH: f32 = 1080.0;
-
 pub const BOX_SIZE: f32 = 20.;
 
 fn main() {
@@ -21,7 +20,7 @@ fn main() {
         .add_plugins(PanOrbitCameraPlugin)
         .add_systems(Update, bevy::window::close_on_esc)
         .add_systems(Startup, setup)
-        .add_systems(Update, run_animation)
+        //.add_systems(Update, run_animation)
         .add_systems(Update, system)
         .add_systems(Update, apply_velocity)
         .add_systems(Update, crow_behaviour)
@@ -48,15 +47,19 @@ impl Default for Crow {
 }
 
 #[derive(Bundle)]
+// struct CrowBundle {
+//     pbr: SceneBundle,
+//     crow: Crow,
+// }
 struct CrowBundle {
-    pbr: SceneBundle,
-    crow: Crow,
+    pbr: PbrBundle,
+    crow: Crow
 }
 
 impl Default for CrowBundle {
     fn default() -> Self {
         Self {
-            pbr: SceneBundle::default(),
+            pbr: PbrBundle::default(),
             crow: Crow::default(),
         }
     }
@@ -79,18 +82,21 @@ fn setup(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
-    asset_server: Res<AssetServer>
+    //asset_server: Res<AssetServer>
 ) {
 
     // Flying Camera
-    commands.spawn((
-        Camera3dBundle {
+     commands.spawn((
+         Camera3dBundle {
             transform: Transform::from_translation(Vec3::new(0.0, 1.5, 5.0)),
-            ..default()
-        },
-        PanOrbitCamera::default(),
+             ..default()
+         },
+         PanOrbitCamera::default(),
     ));
-
+    // commands.spawn(Camera3dBundle {
+    //     transform: Transform::from_translation(Vec3::new(0.0, 1.5, 5.0)),
+    //     ..default()
+    // });
 
     // plane
     commands.spawn(PbrBundle {
@@ -138,25 +144,36 @@ fn setup(
         ..default()
     });
 
-    commands.insert_resource(Animations(vec![asset_server.load("crow1.glb#Animation0")]));
+    // commands.insert_resource(Animations(vec![asset_server.load("crow1.glb#Animation0")]));
 
     //paddle
     let size: usize = 1000;
     let mut all_cubes: Vec<CrowBundle> = Vec::with_capacity(size);
     let mut rng = thread_rng();
+    let boid_mesh = meshes.add(Mesh::from(shape::Cube {size: 0.1})); 
+    let boid_material = materials.add(Color::rgb_u8(124, 144, 255).into());
 
     for _ in 0..size {
         let x_coords = rng.gen_range(-10000..10000) as f32 / 1000.0;
         let y_coords = rng.gen_range(-10000..10000) as f32 / 1000.0;
         let z_coords = rng.gen_range(-10000..10000) as f32 / 1000.0;
+        // let cube = CrowBundle {
+        //     pbr : SceneBundle {
+        //     scene: asset_server.load("crow1.glb#Scene0"),
+        //     transform: Transform::from_xyz(x_coords, y_coords, z_coords)
+        //     .with_scale(Vec3::splat(0.02)),
+        //     ..default()
+        //     },
+        // ..default()
+        // };
+        
         let cube = CrowBundle {
-            pbr : SceneBundle {
-            scene: asset_server.load("crow1.glb#Scene0"),
-            transform: Transform::from_xyz(x_coords, y_coords, z_coords)
-            .with_scale(Vec3::splat(0.02)),
-            ..default()
+            pbr: PbrBundle {
+                mesh: boid_mesh.clone(),
+                material: boid_material.clone(),
+                ..Default::default()
             },
-        ..default()
+            ..default()
         };
         all_cubes.push(cube);
     }
