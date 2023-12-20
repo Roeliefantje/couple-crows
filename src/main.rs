@@ -5,7 +5,6 @@ use std::f32::consts::PI;
 use bevy::{pbr::CascadeShadowConfigBuilder, prelude::*};
 use bevy::prelude::*;
 use bevy_panorbit_camera::{PanOrbitCamera, PanOrbitCameraPlugin};
-use std::{thread, time};
 // use bevy_debug_camera::{DebugCamera, DebugCameraPlugin};
 
 pub const HEIGHT: f32 = 720.0;
@@ -26,12 +25,28 @@ fn main() {
         .add_systems(Update, apply_velocity)
         .add_systems(Update, crow_behaviour)
         .add_systems(Update, borders)
+        .add_systems(Update, update_crow_lod)
         .run();
+}
+
+#[derive(PartialEq, Eq)]
+enum LOD{
+    High,
+    Medium,
+    Low
+}
+
+#[derive(Resource)]
+struct CrowModels{
+    high : Handle<Scene>,
+    medium: Handle<Scene>,
+    low: Handle<Scene>
 }
 
 #[derive(Component)]
 struct Crow {
     vel: Vec3,
+    lod: LOD
 }
 
 impl Default for Crow {
@@ -43,6 +58,7 @@ impl Default for Crow {
         let z_coords = rng.gen_range(0..200) as f32 / 100.0;
         Self {
             vel: Vec3::new(x_coords, y_coords, z_coords).normalize(),
+            lod : LOD::High
         }
     }
 }
@@ -66,14 +82,27 @@ impl Default for CrowBundle {
 pub struct Animations(Vec<Handle<AnimationClip>>);
 
 
-pub fn run_animation(animations : Res<Animations>, mut players_query : Query<&mut AnimationPlayer, Added<AnimationPlayer>>){
-    let mut rng = thread_rng();
-    for mut player in &mut players_query{
-        player.play(animations.0[0].clone()).repeat();
-        player.seek_to(rng.gen_range(0..10000) as f32 / 10000.0);
-        player.set_speed((rng.gen_range(0..5000) as f32 / 10000.0) + 1.0);
-    }
+pub fn run_animation(
+    animations: Res<Animations>,
+    mut query: Query<(Entity, &mut AnimationPlayer)>,
+) {
+    // let entity_count = query.iter_mut().count();
+    // println!("Number of entities with AnimationPlayer and Crow: {}", entity_count);
+    // let mut rng = thread_rng();
+    // for (entity, mut player) in query.iter_mut() {
+    //     let animation_clips = &animations.0;
+    //     let animation = match LOD::High {
+    //         LOD::High => animation_clips[0].clone(),
+    //         LOD::Medium => animation_clips[1].clone(),
+    //         LOD::Low => animation_clips[1].clone(),
+    //     };
+
+    //     player.play(animation).repeat();
+    //     player.seek_to(rng.gen_range(0..10000) as f32 / 10000.0);
+    //     player.set_speed((rng.gen_range(0..5000) as f32 / 10000.0) + 1.0);
+    // }
 }
+
 
 fn setup(
     mut commands: Commands,
@@ -138,7 +167,14 @@ fn setup(
         ..default()
     });
 
+    let crow_models = CrowModels {
+        high: asset_server.load("crow1.glb#Scene0"),
+        medium: asset_server.load("crow2.glb#Scene0"),
+        low: asset_server.load("crow2.glb#Scene0"),
+    };
+    commands.insert_resource(crow_models);
     commands.insert_resource(Animations(vec![asset_server.load("crow1.glb#Animation0")]));
+    commands.insert_resource(Animations(vec![asset_server.load("crow2.glb#Animation0")]));
 
     //paddle
     let size: usize = 1000;
@@ -163,7 +199,34 @@ fn setup(
     commands.spawn_batch(all_cubes);
 }
 
+fn update_crow_lod(
+    mut commands: Commands,
+    camera_query: Query<&Transform, With<Camera>>,
+    mut crow_query: Query<(&mut Handle<Scene>, &mut Crow, &Transform)>,
+    models: Res<CrowModels>,
+) {
+    let camera_transform = camera_query.single();
 
+    for (mut scene_handle, mut crow, transform) in crow_query.iter_mut() {
+        let distance = camera_transform.translation.distance(transform.translation);
+        let new_lod = if distance < 30.0 {
+            LOD::High
+        } else if distance < 50.0 {
+            LOD::Medium
+        } else {
+            LOD::Low
+        };
+
+        if crow.lod != new_lod {
+            *scene_handle = match new_lod {
+                LOD::High => models.high.clone(),
+                LOD::Medium => models.medium.clone(),
+                LOD::Low => models.low.clone(),
+            };
+            crow.lod = new_lod;
+        }
+    }
+}
 
 fn system(mut gizmos: Gizmos) {
     gizmos.cuboid(
