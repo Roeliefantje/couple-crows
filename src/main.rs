@@ -71,7 +71,7 @@ impl Grid {
     }
 
     //Get all crows in a certain radius around a certain point
-    fn get (&self, query: Query<&Transform>, point: Vec3, radius: f32) -> Vec<Entity> {
+    fn get_in_radius (&self, query: Query<&Transform>, point: Vec3, radius: f32) -> Vec<Entity> {
         let mut crows = Vec::new();
         //Get grid coordinates of the potential affected cells
         let min_x = self.cooridnate_to_grid_coordinate(point.x - radius).max(0);
@@ -98,7 +98,26 @@ impl Grid {
     }
 
     //Update the grid by reevaluating the position of all crows
-    fn update (&mut self) {
+    fn update (&mut self, query: Query<&Transform>) {
+        //Create new empty grid
+        let mut new_grid = Grid::new(self.size, self.cell_size);
+        //Iterate over all cells in the grid
+        for x in 0..self.size {
+            for y in 0..self.size {
+                for z in 0..self.size {
+                    //Iterate over all crows in the cell
+                    for crow in &self.grid[x][y][z].crows {
+                        //Add the crow to the new grid
+                        let transform = query.get(*crow).unwrap();
+                        let x = self.cooridnate_to_grid_coordinate(transform.translation.x);
+                        let y = self.cooridnate_to_grid_coordinate(transform.translation.y);
+                        let z = self.cooridnate_to_grid_coordinate(transform.translation.z);
+                        new_grid[x][y][z].crows.push(*crow);
+                    }
+                }
+            }
+        }
+
     }
 }
 
