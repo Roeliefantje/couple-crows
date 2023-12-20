@@ -15,7 +15,7 @@ use bytemuck::Zeroable;
 
 use rand::distributions::{Distribution, Uniform};
 
-const NUM_BOIDS: u32 = 10000;
+const NUM_BOIDS: u32 = 1;
 
 pub const BOX_SIZE: f32 = 40.;
 
