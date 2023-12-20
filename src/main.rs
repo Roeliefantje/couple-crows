@@ -33,6 +33,12 @@ struct GridCell {
     crows: Vec<Entity>,
 }
 
+impl Default for Grid{
+    fn default() -> Self {
+        Self::new(20, 1.0)
+    }
+}
+
 impl Grid {
     //Create new grid with size*size*size, size must be even
     fn new (size: usize, cell_size: f32) -> Self {
@@ -112,7 +118,7 @@ impl Grid {
                         let x = self.cooridnate_to_grid_coordinate(transform.translation.x);
                         let y = self.cooridnate_to_grid_coordinate(transform.translation.y);
                         let z = self.cooridnate_to_grid_coordinate(transform.translation.z);
-                        new_grid[x][y][z].crows.push(*crow);
+                        new_grid.grid[x][y][z].crows.push(*crow);
                     }
                 }
             }
