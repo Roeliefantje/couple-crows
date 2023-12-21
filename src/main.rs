@@ -30,7 +30,7 @@ struct Grid {
 }
 
 struct GridCell {
-    crows: Vec<Entity>,
+    crows: Vec<Transform>,
 }
 
 impl Default for Grid{
@@ -62,34 +62,22 @@ impl Grid {
     }
 
     //Add a crow to the grid by its transform centered around (0,0,0)
-    fn add_with_transform (&mut self, transform: &Transform, entity_id : Entity) {
+    fn add_with_transform (&mut self, transform: &Transform) {
         //Convert the possible negative coordinates to positive 
         //meaning that negative coordinates are between 0 and size/2 
         //and positive coordinates are between size/2 and size 
         let x = self.cooridnate_to_grid_coordinate(transform.translation.x);
         let y = self.cooridnate_to_grid_coordinate(transform.translation.y);
         let z = self.cooridnate_to_grid_coordinate(transform.translation.z);
-        self.grid[x][y][z].crows.push(entity_id);
-    }
-
-    //Add a crow to the grid by its transform centered around (0,0,0) gotten from a query
-    fn add (&mut self, query: Query<&Transform>, entity_id : Entity) {
-        //Convert the possible negative coordinates to positive 
-        //meaning that negative coordinates are between 0 and size/2 
-        //and positive coordinates are between size/2 and size 
-        let transform = query.get(entity_id).unwrap();
-        let x = self.cooridnate_to_grid_coordinate(transform.translation.x);
-        let y = self.cooridnate_to_grid_coordinate(transform.translation.y);
-        let z = self.cooridnate_to_grid_coordinate(transform.translation.z);
-        self.grid[x][y][z].crows.push(entity_id);
+        self.grid[x][y][z].crows.push(*transform);
     }
 
     fn cooridnate_to_grid_coordinate (&self, coordinate: f32) -> usize {
-        ((coordinate.abs() + if coordinate < 0.0 {0.0} else {self.size as f32 * self.cell_size / 2.0}) / self.cell_size) as usize
+         ((coordinate.abs() + if coordinate < 0.0 {0.0} else {self.size as f32 * self.cell_size / 2.0}) / self.cell_size) as usize % self.size
     }
 
     //Get all crows in a certain radius around a certain point
-    fn get_in_radius (&self, query: Query<&Transform, With<Crow>>, point: Vec3, radius: f32) -> Vec<Entity> {
+    fn get_in_radius (&self, point: Vec3, radius: f32) -> Vec<&Transform> {
         let mut crows = Vec::new();
         //Get grid coordinates of the potential affected cells
         let min_x = self.cooridnate_to_grid_coordinate(point.x - radius).max(0);
@@ -105,37 +93,14 @@ impl Grid {
                     //Iterate over all crows in the cell
                     for crow in &self.grid[x][y][z].crows {
                         //Check if the crow is in the radius
-                        if query.get(*crow).unwrap().translation.distance(point) < radius {
-                            crows.push(*crow);
+                        if crow.translation.distance(point) < radius {
+                            crows.push(crow);
                         }
                     }
                 }
             }
         }
         crows
-    }
-
-    //Update the grid by reevaluating the position of all crows
-    fn update (&mut self, query: Query<&Transform>) {
-        //Create new empty grid
-        let mut new_grid = Grid::new(self.size, self.cell_size);
-        //Iterate over all cells in the grid
-        for x in 0..self.size {
-            for y in 0..self.size {
-                for z in 0..self.size {
-                    //Iterate over all crows in the cell
-                    for crow in &self.grid[x][y][z].crows {
-                        //Add the crow to the new grid
-                        let transform = query.get(*crow).unwrap();
-                        let x = self.cooridnate_to_grid_coordinate(transform.translation.x);
-                        let y = self.cooridnate_to_grid_coordinate(transform.translation.y);
-                        let z = self.cooridnate_to_grid_coordinate(transform.translation.z);
-                        new_grid.grid[x][y][z].crows.push(*crow);
-                    }
-                }
-            }
-        }
-
     }
 }
 
@@ -188,6 +153,7 @@ fn setup(
 
     //paddle
     let size: usize = 1000;
+    let mut bundles_iter = Vec::with_capacity(size);
     let mut rng = thread_rng();
 
     for _ in 0..size {
@@ -195,7 +161,7 @@ fn setup(
         let y_coords = rng.gen_range(-10000..10000) as f32 / 1000.0;
         let z_coords = rng.gen_range(-10000..10000) as f32 / 1000.0;
         let transform = Transform::from_xyz(x_coords, y_coords, z_coords);
-        let cube = CrowBundle {
+        let crow = CrowBundle {
             pbr: PbrBundle {
                 mesh: meshes.add(Mesh::from(shape::Cube { size: 0.1 })),
                 material: materials.add(Color::rgb_u8(124, 144, 166).into()),
@@ -204,10 +170,10 @@ fn setup(
             },
             ..default()
         };
-        let entity_id = commands.spawn(cube).id();
-        grid.add_with_transform(&transform, entity_id);
+        bundles_iter.push(crow);
+        grid.add_with_transform(&transform);
     }
-    
+    commands.spawn_batch(bundles_iter);
     commands.insert_resource(grid);
 }
 
@@ -241,14 +207,18 @@ fn borders(mut query: Query<&mut Transform, With<Crow>>) {
     }
 }
 
-fn apply_velocity(mut query: Query<(&mut Transform, &Crow)>, time: Res<Time>) {
+fn apply_velocity(mut query: Query<(&mut Transform, &Crow)>, time: Res<Time>, grid: Res<Grid>, mut command : Commands) {
+    
+    let mut new_grid = Grid::new(grid.size, grid.cell_size);
     for (mut transform, crow) in query.iter_mut() {
         //transform.translation += crow.vel * time.delta_seconds();
         let new_pos = transform.translation + crow.vel * time.delta_seconds();
         transform.look_at(new_pos, Vec3::Y);
         transform.translation = new_pos;
         //println!("{}", crow.vel);
+        new_grid.add_with_transform(&transform);
     }
+    command.insert_resource(new_grid);
 }
 
 fn crow_behaviour(
@@ -258,15 +228,15 @@ fn crow_behaviour(
 ) {
     for (transform, mut crow) in query.iter_mut() {
         //Find other crows transforms in a seperation_radius
-        let others_seperations = grid.get_in_radius(others, transform.translation, SEPERATION_RADIUS);
+        let others_seperations = grid.get_in_radius(transform.translation, SEPERATION_RADIUS);
 
         //Find other crows in a vision_radius
-        let others_vision = grid.get_in_radius(others, transform.translation, VISION_RADIUS);
+        let others_vision = grid.get_in_radius(transform.translation, VISION_RADIUS);
         
         //Calculate the seperation, alignment and cohesion
-        let seperation = calculate_seperation(&transform, &transform_seperations);
-        let alignment = calculate_alignment(&transform, &transform_vision);
-        let cohesion = calculate_cohesion(&transform, &transform_vision);
+        let seperation = calculate_seperation(&transform, &others_seperations);
+        let alignment = calculate_alignment(&transform, &others_vision);
+        let cohesion = calculate_cohesion(&transform, &others_vision);
         //for other_transform in others.iter(){
         //    let diff = transform.translation.distance(other_transform.translation);
         //    println!("Difference: {}", diff);
@@ -281,7 +251,7 @@ fn crow_behaviour(
 const SEPERATION_RADIUS: f32 = 1.2;
 const VISION_RADIUS: f32 = 3.0;
 
-fn calculate_seperation(boid: &Transform, others: &Vec<Transform>) -> Vec3 {
+fn calculate_seperation(boid: &Transform, others: &Vec<&Transform>) -> Vec3 {
     let mut total_seperation: Vec3 = Vec3::ZERO;
 
     for other_crow in others.iter() {
@@ -297,7 +267,7 @@ fn calculate_seperation(boid: &Transform, others: &Vec<Transform>) -> Vec3 {
     total_seperation
 }
 
-fn calculate_alignment(boid: &Transform, others: &Vec<Transform>) -> Vec3 {
+fn calculate_alignment(boid: &Transform, others: &Vec<&Transform>) -> Vec3 {
     let mut total_alignment: Vec3 = Vec3::ZERO;
 
     for other_crows in others.iter() {
@@ -312,7 +282,7 @@ fn calculate_alignment(boid: &Transform, others: &Vec<Transform>) -> Vec3 {
     total_alignment.normalize_or_zero()
 }
 
-fn calculate_cohesion(boid: &Transform, others: &Vec<Transform>) -> Vec3 {
+fn calculate_cohesion(boid: &Transform, others: &Vec<&Transform>) -> Vec3 {
     let mut average_position: Vec3 = Vec3::ZERO;
     let mut count: u16 = 0;
     for other_crows in others.iter() {
