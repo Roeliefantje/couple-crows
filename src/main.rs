@@ -270,26 +270,28 @@ fn system(mut gizmos: Gizmos) {
 //     }
 // }
 
+const BOUND_SIZE: f32 = 40.;
+
 fn borders(mut query: Query<&mut Transform, With<Crow>>) {
     for mut transform in query.iter_mut() {
-        if transform.translation.x < -10. {
-            transform.translation.x = 10.;
+        if transform.translation.x < -BOUND_SIZE/2. {
+            transform.translation.x = BOUND_SIZE/2.;
         }
-        if transform.translation.x > 10. {
-            transform.translation.x = -10.;
+        if transform.translation.x > BOUND_SIZE/2. {
+            transform.translation.x = -BOUND_SIZE/2.;
         }
 
-        if transform.translation.y < -10. {
-            transform.translation.y = 10.;
+        if transform.translation.y < -BOUND_SIZE/2. {
+            transform.translation.y = BOUND_SIZE/2.;
         }
-        if transform.translation.y > 10. {
-            transform.translation.y = -10.;
+        if transform.translation.y > BOUND_SIZE/2. {
+            transform.translation.y = -BOUND_SIZE/2.;
         }
-        if transform.translation.z < -10. {
-            transform.translation.z = 10.;
+        if transform.translation.z < -BOUND_SIZE/2. {
+            transform.translation.z = BOUND_SIZE/2.;
         }
-        if transform.translation.z > 10. {
-            transform.translation.z = -10.;
+        if transform.translation.z > BOUND_SIZE/2. {
+            transform.translation.z = -BOUND_SIZE/2.;
         }
     }
 }
@@ -337,6 +339,7 @@ fn crow_behaviour(
 
 const SEPERATION_RADIUS: f32 = 1.2;
 const VISION_RADIUS: f32 = 3.0;
+const COHESION_FACTOR: f32 = 0.01;
 
 fn calculate_seperation(boid: &Transform, others: &Vec<&Transform>) -> Vec3 {
     let mut total_seperation: Vec3 = Vec3::ZERO;
