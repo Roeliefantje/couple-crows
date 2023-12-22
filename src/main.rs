@@ -26,6 +26,8 @@ fn main() {
         .add_systems(Update, apply_velocity)
         .add_systems(Update, crow_behaviour)
         .add_systems(Update, borders)
+        //Set background color to white
+        .insert_resource(ClearColor(Color::WHITE))
         .run();
 }
 
