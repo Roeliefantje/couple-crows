@@ -1,16 +1,21 @@
 use bevy::diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin};
 use bevy::{gizmos, math::*, prelude::*};
+use bevy::{pbr::CascadeShadowConfigBuilder};
+use bevy_panorbit_camera::{PanOrbitCamera, PanOrbitCameraPlugin};
 use rand::{thread_rng, Rng};
 use std::f32::consts::PI;
-use bevy::{pbr::CascadeShadowConfigBuilder, prelude::*};
-use bevy::prelude::*;
-use bevy_panorbit_camera::{PanOrbitCamera, PanOrbitCameraPlugin};
 use std::{thread, time};
 // use bevy_debug_camera::{DebugCamera, DebugCameraPlugin};
 
+//[MODULES]
+use crate::grid_architecture::*;
+use crate::boid_movement::*;
+mod boid_movement;
+mod grid_architecture;
+
+
 pub const HEIGHT: f32 = 720.0;
 pub const WIDTH: f32 = 1080.0;
-
 pub const BOX_SIZE: f32 = 20.;
 
 fn main() {
@@ -31,89 +36,7 @@ fn main() {
         .run();
 }
 
-#[derive(Resource)]
 
-//Grid struct to store all crows in a grid, Grid is always centered at 0,0,0
-struct Grid {
-    grid: Vec<Vec<Vec<GridCell>>>,
-    size: usize,
-    cell_size: f32,
-}
-
-struct GridCell {
-    crows: Vec<Transform>,
-}
-
-impl Default for Grid{
-    fn default() -> Self {
-        Self::new(20, 1.0)
-    }
-}
-
-impl Grid {
-    //Create new grid with size*size*size, size must be even
-    fn new (size: usize, cell_size: f32) -> Self {
-        let mut grid = Vec::with_capacity(size);
-        for x in 0..size {
-            let mut grid_x = Vec::with_capacity(size);
-            for y in 0..size {
-                let mut grid_y = Vec::with_capacity(size);
-                for z in 0..size {
-                    grid_y.push(GridCell{crows: Vec::new()});
-                }
-                grid_x.push(grid_y);
-            }
-            grid.push(grid_x);
-        }
-        Self {
-            grid,
-            size,
-            cell_size,
-        }
-    }
-
-    //Add a crow to the grid by its transform centered around (0,0,0)
-    fn add_with_transform (&mut self, transform: &Transform) {
-        //Convert the possible negative coordinates to positive 
-        //meaning that negative coordinates are between 0 and size/2 
-        //and positive coordinates are between size/2 and size 
-        let x = self.cooridnate_to_grid_coordinate(transform.translation.x);
-        let y = self.cooridnate_to_grid_coordinate(transform.translation.y);
-        let z = self.cooridnate_to_grid_coordinate(transform.translation.z);
-        self.grid[x][y][z].crows.push(*transform);
-    }
-
-    fn cooridnate_to_grid_coordinate (&self, coordinate: f32) -> usize {
-         ((coordinate.abs() + if coordinate < 0.0 {0.0} else {self.size as f32 * self.cell_size / 2.0}) / self.cell_size) as usize % self.size
-    }
-
-    //Get all crows in a certain radius around a certain point
-    fn get_in_radius (&self, point: Vec3, radius: f32) -> Vec<&Transform> {
-        let mut crows = Vec::new();
-        //Get grid coordinates of the potential affected cells
-        let min_x = self.cooridnate_to_grid_coordinate(point.x - radius).max(0);
-        let max_x = self.cooridnate_to_grid_coordinate(point.x + radius).min(self.size);
-        let min_y = self.cooridnate_to_grid_coordinate(point.y - radius).max(0);
-        let max_y = self.cooridnate_to_grid_coordinate(point.y + radius).min(self.size);
-        let min_z = self.cooridnate_to_grid_coordinate(point.z - radius).max(0);
-        let max_z = self.cooridnate_to_grid_coordinate(point.z + radius).min(self.size);
-        //Iterate over all cells in the area grid
-        for x in min_x..max_x {
-            for y in min_y..max_y {
-                for z in min_z..max_z {
-                    //Iterate over all crows in the cell
-                    for crow in &self.grid[x][y][z].crows {
-                        //Check if the crow is in the radius
-                        if crow.translation.distance(point) < radius {
-                            crows.push(crow);
-                        }
-                    }
-                }
-            }
-        }
-        crows
-    }
-}
 
 #[derive(Component)]
 struct Crow {
@@ -270,120 +193,27 @@ fn system(mut gizmos: Gizmos) {
 //     }
 // }
 
-const BOUND_SIZE: f32 = 40.;
-
 fn borders(mut query: Query<&mut Transform, With<Crow>>) {
     for mut transform in query.iter_mut() {
-        if transform.translation.x < -BOUND_SIZE/2. {
-            transform.translation.x = BOUND_SIZE/2.;
+        if transform.translation.x < -BOX_SIZE/2. {
+            transform.translation.x = BOX_SIZE/2.;
         }
-        if transform.translation.x > BOUND_SIZE/2. {
-            transform.translation.x = -BOUND_SIZE/2.;
+        if transform.translation.x > BOX_SIZE/2. {
+            transform.translation.x = -BOX_SIZE/2.;
         }
 
-        if transform.translation.y < -BOUND_SIZE/2. {
-            transform.translation.y = BOUND_SIZE/2.;
+        if transform.translation.y < -BOX_SIZE/2. {
+            transform.translation.y = BOX_SIZE/2.;
         }
-        if transform.translation.y > BOUND_SIZE/2. {
-            transform.translation.y = -BOUND_SIZE/2.;
+        if transform.translation.y > BOX_SIZE/2. {
+            transform.translation.y = -BOX_SIZE/2.;
         }
-        if transform.translation.z < -BOUND_SIZE/2. {
-            transform.translation.z = BOUND_SIZE/2.;
+        if transform.translation.z < -BOX_SIZE/2. {
+            transform.translation.z = BOX_SIZE/2.;
         }
-        if transform.translation.z > BOUND_SIZE/2. {
-            transform.translation.z = -BOUND_SIZE/2.;
+        if transform.translation.z > BOX_SIZE/2. {
+            transform.translation.z = -BOX_SIZE/2.;
         }
     }
 }
 
-fn apply_velocity(mut query: Query<(&mut Transform, &Crow)>, time: Res<Time>, grid: Res<Grid>, mut command : Commands) {
-    
-    let mut new_grid = Grid::new(grid.size, grid.cell_size);
-    for (mut transform, crow) in query.iter_mut() {
-        //transform.translation += crow.vel * time.delta_seconds();
-        let new_pos = transform.translation + crow.vel * time.delta_seconds();
-        transform.look_at(new_pos, Vec3::Y);
-        transform.translation = new_pos;
-        //println!("{}", crow.vel);
-        new_grid.add_with_transform(&transform);
-    }
-    command.insert_resource(new_grid);
-}
-
-fn crow_behaviour(
-    mut query: Query<(&Transform, &mut Crow)>,
-    others: Query<&Transform, With<Crow>>,
-    grid: Res<Grid>,
-) {
-    for (transform, mut crow) in query.iter_mut() {
-        //Find other crows transforms in a seperation_radius
-        let others_seperations = grid.get_in_radius(transform.translation, SEPERATION_RADIUS);
-
-        //Find other crows in a vision_radius
-        let others_vision = grid.get_in_radius(transform.translation, VISION_RADIUS);
-        
-        //Calculate the seperation, alignment and cohesion
-        let seperation = calculate_seperation(&transform, &others_seperations);
-        let alignment = calculate_alignment(&transform, &others_vision);
-        let cohesion = calculate_cohesion(&transform, &others_vision);
-        //for other_transform in others.iter(){
-        //    let diff = transform.translation.distance(other_transform.translation);
-        //    println!("Difference: {}", diff);
-        //}
-        //println!("Seperation {}, Alignment {}, Cohesion{}", seperation, alignment, cohesion);
-        crow.vel += seperation + alignment + cohesion;
-
-        crow.vel = crow.vel.normalize() * 2.0;
-    }
-}
-
-const SEPERATION_RADIUS: f32 = 1.2;
-const VISION_RADIUS: f32 = 3.0;
-const COHESION_FACTOR: f32 = 0.01;
-
-fn calculate_seperation(boid: &Transform, others: &Vec<&Transform>) -> Vec3 {
-    let mut total_seperation: Vec3 = Vec3::ZERO;
-
-    for other_crow in others.iter() {
-        let diff: f32 = boid.translation.distance(other_crow.translation);
-
-        if diff != 0.0 && diff < SEPERATION_RADIUS {
-            let direction = (other_crow.translation - boid.translation).normalize() * -1.;
-
-            total_seperation += direction * (1.0 / diff);
-        }
-    }
-
-    total_seperation.normalize_or_zero()
-}
-
-fn calculate_alignment(boid: &Transform, others: &Vec<&Transform>) -> Vec3 {
-    let mut total_alignment: Vec3 = Vec3::ZERO;
-
-    for other_crows in others.iter() {
-        let diff: f32 = boid.translation.distance(other_crows.translation);
-
-        if diff != 0.0 && diff < VISION_RADIUS {
-            let direction = other_crows.forward();
-            total_alignment += direction;
-        }
-    }
-
-    total_alignment.normalize_or_zero()
-}
-
-fn calculate_cohesion(boid: &Transform, others: &Vec<&Transform>) -> Vec3 {
-    let mut average_position: Vec3 = Vec3::ZERO;
-    let mut count: u16 = 0;
-    for other_crows in others.iter() {
-        let diff: f32 = boid.translation.distance(other_crows.translation);
-
-        if diff != 0.0 && diff < VISION_RADIUS {
-            count += 1;
-            average_position += other_crows.translation;
-        }
-    }
-    average_position /= count as f32;
-
-    (average_position - boid.translation).normalize_or_zero()
-}
