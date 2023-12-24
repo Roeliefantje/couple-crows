@@ -56,6 +56,14 @@ impl Default for Crow {
     }
 }
 
+impl Clone for Crow {
+    fn clone(&self) -> Self {
+        Self {
+            vel: self.vel.clone(),
+        }
+    }
+}
+
 #[derive(Bundle)]
 struct CrowBundle {
     pbr: SceneBundle,
@@ -171,7 +179,7 @@ fn setup(
         ..default()
         };
         crows.push(crow);
-        grid.add_with_transform(&transform);
+        grid.add_with_transform(&transform, &Crow::default());
     }
     commands.spawn_batch(crows);
     commands.insert_resource(grid);

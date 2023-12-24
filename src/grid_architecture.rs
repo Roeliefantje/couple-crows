@@ -1,5 +1,7 @@
 use bevy::{math::*, prelude::*};
 
+use crate::Crow;
+
 fn main() {
     // Your main code here
 }
@@ -14,7 +16,7 @@ pub struct Grid {
 }
 
 pub struct GridCell {
-    crows: Vec<Transform>,
+    crows: Vec<(Transform,Crow)>,
 }
 
 impl Default for Grid{
@@ -46,14 +48,14 @@ impl Grid {
     }
 
     //Add a crow to the grid by its transform centered around (0,0,0)
-    pub fn add_with_transform (&mut self, transform: &Transform) {
+    pub fn add_with_transform (&mut self, transform: &Transform, crow: &Crow) {
         //Convert the possible negative coordinates to positive 
         //meaning that negative coordinates are between 0 and size/2 
         //and positive coordinates are between size/2 and size 
         let x = self.cooridnate_to_grid_coordinate(transform.translation.x);
         let y = self.cooridnate_to_grid_coordinate(transform.translation.y);
         let z = self.cooridnate_to_grid_coordinate(transform.translation.z);
-        self.grid[x][y][z].crows.push(*transform);
+        self.grid[x][y][z].crows.push((*transform, crow.clone()));
     }
 
     fn cooridnate_to_grid_coordinate (&self, coordinate: f32) -> usize {
@@ -61,7 +63,7 @@ impl Grid {
     }
 
     //Get all crows in a certain radius around a certain point
-    pub fn get_in_radius (&self, point: Vec3, radius: f32) -> Vec<&Transform> {
+    pub fn get_in_radius (&self, point: Vec3, radius: f32) -> Vec<&(Transform,Crow)> {
         let mut crows = Vec::new();
         //Get grid coordinates of the potential affected cells
         let min_x = self.cooridnate_to_grid_coordinate(point.x - radius).max(0);
@@ -77,7 +79,7 @@ impl Grid {
                     //Iterate over all crows in the cell
                     for crow in &self.grid[x][y][z].crows {
                         //Check if the crow is in the radius
-                        if crow.translation.distance(point) < radius {
+                        if crow.0.translation.distance(point) < radius {
                             crows.push(crow);
                         }
                     }

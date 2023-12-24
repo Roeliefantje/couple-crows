@@ -17,7 +17,7 @@ pub fn apply_velocity(mut query: Query<(&mut Transform, &Crow)>, time: Res<Time>
         transform.look_at(new_pos, Vec3::Y);
         transform.translation = new_pos;
         //println!("{}", crow.vel);
-        new_grid.add_with_transform(&transform);
+        new_grid.add_with_transform(&transform, crow);
         //println!("New pos: {}", transform.translation);
     }
     command.insert_resource(new_grid);
@@ -35,10 +35,10 @@ pub fn crow_behaviour(
 
         //Find other crows in a vision_radius
         let others_vision = grid.get_in_radius(transform.translation, VISION_RADIUS);
-        
+
         //Calculate the seperation, alignment and cohesion
         let seperation = calculate_seperation(&transform, &others_seperations);
-        let alignment = calculate_alignment(&transform, &crow, &others_vision);
+        let alignment = calculate_alignment(&transform, &others_vision);
         let cohesion = calculate_cohesion(&transform, &others_vision);
         //for other_transform in others.iter(){
         //    let diff = transform.translation.distance(other_transform.translation);
@@ -51,48 +51,49 @@ pub fn crow_behaviour(
     }
 }
 
-pub fn calculate_seperation(boid: &Transform, others: &Vec<&Transform>) -> Vec3 {
+pub fn calculate_seperation(boid: &Transform, others: &Vec<&(Transform,Crow)>) -> Vec3 {
     let mut total_seperation: Vec3 = Vec3::ZERO;
 
     for other_crow in others.iter() {
-        let diff: f32 = boid.translation.distance(other_crow.translation);
+
+        let diff: f32 = boid.translation.distance(other_crow.0.translation);
 
         if diff != 0.0 {
-            total_seperation -= (other_crow.translation - boid.translation);
+            total_seperation -= (other_crow.0.translation - boid.translation);
         }
     }
-
     total_seperation * SEPERATION_FACTOR
 }
 
-pub fn calculate_alignment(boid: &Transform, crow: &Crow, others: &Vec<&Transform>) -> Vec3 {
+pub fn calculate_alignment(boid: &Transform, others: &Vec<&(Transform,Crow)>) -> Vec3 {
     let mut total_alignment: Vec3 = Vec3::ZERO;
-    if others.is_empty() {
+    if !others.is_empty() {
 
-        for other_crows in others.iter() {
-            let diff: f32 = boid.translation.distance(other_crows.translation);
+        for other_crow in others.iter() {
+            let diff: f32 = boid.translation.distance(other_crow.0.translation);
     
             if diff != 0.0 {
-                total_alignment += crow.vel.normalize();
+                total_alignment += other_crow.1.vel.normalize();
             }
         }
         total_alignment /= others.len() as f32;
     }
+    //println!("Total alignment: {}", total_alignment);
     total_alignment * ALIGNMENT_FACTOR
 }
 
-pub fn calculate_cohesion(boid: &Transform, others: &Vec<&Transform>) -> Vec3 {
+pub fn calculate_cohesion(boid: &Transform, others: &Vec<&(Transform,Crow)>) -> Vec3 {
     let mut average_position: Vec3 = Vec3::ZERO;
 
-    if others.is_empty() {
+    if !others.is_empty() {
         
         let mut count: u16 = 0;
         for other_crows in others.iter() {
-            let diff: f32 = boid.translation.distance(other_crows.translation);
+            let diff: f32 = boid.translation.distance(other_crows.0.translation);
 
             if diff != 0.0 {
                 count += 1;
-                average_position += other_crows.translation;
+                average_position += other_crows.0.translation;
             }
         }
         average_position /= count as f32;
