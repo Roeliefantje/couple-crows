@@ -1,3 +1,5 @@
+use std::fmt;
+
 use bevy::{math::*, prelude::*};
 
 fn main() {
@@ -85,5 +87,25 @@ impl Grid {
             }
         }
         crows
+    }
+}
+
+impl fmt::Debug for Grid {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "Grid {{ size: {}, cell_size: {}, grid: [", self.size, self.cell_size)?;
+        
+        for x in &self.grid {
+            write!(f, "[")?;
+            for y in x {
+                write!(f, "[")?;
+                for z in y {
+                    write!(f, "{{ crows: {:?} }},", z.crows)?;
+                }
+                write!(f, "],")?;
+            }
+            write!(f, "],")?;
+        }
+
+        write!(f, "] }}")
     }
 }
