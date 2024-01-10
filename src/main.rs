@@ -5,6 +5,7 @@
 use bevy::diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin};
 
 use bevy::{
+    asset::AssetMetaCheck,
     core::Pod,
     prelude::*,
 };
@@ -57,6 +58,7 @@ fn main() {
         .add_plugins(DefaultPlugins)
         .add_plugins(LogDiagnosticsPlugin::default())
         .add_plugins(FrameTimeDiagnosticsPlugin::default())
+        .insert_resource(AssetMetaCheck::Never)
         .add_plugins(AppComputePlugin)
         .add_plugins(AppComputeWorkerPlugin::<BoidWorker>::default())
         .add_plugins(PanOrbitCameraPlugin)
