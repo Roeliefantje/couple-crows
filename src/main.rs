@@ -84,10 +84,13 @@ pub fn run_animation(animations : Res<Animations>, mut players_query : Query<&mu
     }
 }
 
+struct FrameCounter(usize);
+
 fn setup(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
+    commands.insert_resource(FrameCounter(0)), //initialize frame counter
     asset_server: Res<AssetServer>
 ) {
 
