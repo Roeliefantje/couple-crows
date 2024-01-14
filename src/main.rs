@@ -31,6 +31,7 @@ fn main() {
         .add_systems(Update, apply_velocity)
         .add_systems(Update, crow_behaviour)
         .add_systems(Update, borders)
+        .add_system(Update, movement_system.system())
         //Set background color to white
         .insert_resource(ClearColor(Color::WHITE))
         .run();
@@ -195,6 +196,22 @@ fn system(mut gizmos: Gizmos) {
 //         transform.rotate_y(time.delta_seconds() / 2.)
 //     }
 // }
+
+struct Velocity(Vec3);
+const CROW_SPEED: f32 = 2.0;
+
+fn movement_system(
+    mut frame_counter: ResMut<FrameCounter>,
+    time: Res<Time>,
+    mut query: Query<(&mut Transform, &Velocity), With<Crow>>,
+) {
+    if frame_counter.0 % 2 == 0 {
+        for (mut transform, velocity) in query.iter_mut() {
+            transform.translation += velocity.0 * CROW_SPEED * time.delta_seconds();
+        }
+    }
+    frame_counter.0 += 1;
+}
 
 fn borders(mut query: Query<&mut Transform, With<Crow>>) {
     for mut transform in query.iter_mut() {
