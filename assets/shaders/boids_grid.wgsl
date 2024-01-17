@@ -7,7 +7,9 @@ struct Params {
     cohesionDistance : f32,
     seperationScale : f32,
     alignmentScale : f32,
-    cohesionScale : f32
+    cohesionScale : f32,
+    grid_size : f32,
+    cell_size : f32,
 }
 
 struct Boid {
@@ -25,10 +27,16 @@ var<uniform> delta_time: f32;
 var<storage> boids_src: array<Boid>;
 @group(0) @binding(3)
 var<storage, read_write> boids_dst: array<Boid>;
-
+@group(0) @binding(4)
+var<storage> amount_of_crows_vec: array<u32>;
+@group(0) @binding(5)
+var<storage> crow_idxs: array<u32>;
 
 @compute @workgroup_size(1)
 fn main(@builtin(global_invocation_id) invocation_id: vec3<u32>) {
+
+    //let total_grids = arrayLength(&amount_of_crows_vec);
+    //let total_indices = arrayLength(&crow_idxs);
 
     let total_boids = arrayLength(&boids_src);
     let index = invocation_id.x;
@@ -40,6 +48,19 @@ fn main(@builtin(global_invocation_id) invocation_id: vec3<u32>) {
     var vPos = boids_src[index].pos; // Boid Position
     var vVel = boids_src[index].vel; // Boid Velocity
 
+    var grid_x = u32((vPos.x / params.cell_size) + (params.grid_size * params.cell_size * 0.5)) % u32(params.grid_size);
+    var grid_y = u32((vPos.y / params.cell_size) + (params.grid_size * params.cell_size * 0.5)) % u32(params.grid_size);
+    var grid_z = u32((vPos.z / params.cell_size) + (params.grid_size * params.cell_size * 0.5)) % u32(params.grid_size);
+
+    var grid_idx: u32 = grid_x * u32(params.grid_size) * u32(params.grid_size) + grid_y * u32(params.grid_size) + grid_z;
+    var start_idx: u32 = 0u;
+    var end_idx: u32 = amount_of_crows_vec[grid_idx]; 
+    if (grid_idx > 0u) {
+        start_idx = amount_of_crows_vec[grid_idx - 1u];
+    }
+
+
+
     var total_seperation : vec4<f32> = vec4<f32>(0.0, 0.0, 0.0, 0.0);
     var total_alignment: vec4<f32> = vec4<f32>(0.0, 0.0, 0.0, 0.0);
     var total_cohesion : vec4<f32> = vec4<f32>(0.0, 0.0, 0.0, 0.0);
@@ -49,22 +70,22 @@ fn main(@builtin(global_invocation_id) invocation_id: vec3<u32>) {
     var pos: vec4<f32>;
     var vel: vec4<f32>;
 
-    var i: u32 = 0u;
+    var i: u32 = start_idx;
 
     loop {
-        if (i >= total_boids) {
+        if (i >= end_idx) {
             break;
         }
         if (i == index) {
             continue;
         }
 
-        pos = boids_src[i].pos;
-        vel = boids_src[i].vel;
+        pos = boids_src[crow_idxs[i]].pos;
+        vel = boids_src[crow_idxs[i]].vel;
 
         let dst = distance(pos, vPos);
 
-        if (dst < params.seperationDistance) {
+        if (0.0 < dst && dst < params.seperationDistance) {
             total_seperation += normalize(pos - vPos) * f32(-1) / dst;
         }
         if (dst < params.alignmentDistance) {
