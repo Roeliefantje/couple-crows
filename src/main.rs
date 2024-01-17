@@ -31,8 +31,8 @@ fn main() {
         .add_systems(Update, apply_velocity)
         .add_systems(Update, crow_behaviour)
         .add_systems(Update, borders)
-        .add_system(Update, movement_system.system())
-        .register_component::<Velocity>()
+    //    .add_system(Update, movement_system.system())
+    //    .register_component::<Velocity>()
         //Set background color to white
         .insert_resource(ClearColor(Color::WHITE))
         .run();
@@ -86,13 +86,13 @@ pub fn run_animation(animations : Res<Animations>, mut players_query : Query<&mu
     }
 }
 
-struct FrameCounter(usize);
+//struct FrameCounter(usize);
 
 fn setup(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
-    commands.insert_resource(FrameCounter(0)), //initialize frame counter
+    //commands.insert_resource(FrameCounter(0)); //initialize frame counter
     asset_server: Res<AssetServer>
 ) {
 
@@ -198,21 +198,21 @@ fn system(mut gizmos: Gizmos) {
 //     }
 // }
 
-struct Velocity(Vec3);
-const CROW_SPEED: f32 = 2.0;
+//    struct Velocity(Vec3);
+//    const CROW_SPEED: f32 = 2.0;
 
-fn movement_system(
-    mut frame_counter: ResMut<FrameCounter>,
-    time: Res<Time>,
-    mut query: Query<(&mut Transform, &Velocity), With<Crow>>,
-) {
-    if frame_counter.0 % 2 == 0 { //skip every other frame
-        for (mut transform, velocity) in query.iter_mut() {
-            transform.translation += velocity.0 * CROW_SPEED * time.delta_seconds();
-        }
-    }
-    frame_counter.0 += 1;
-}
+//    fn movement_system(
+//        mut frame_counter: ResMut<FrameCounter>,
+//        time: Res<Time>,
+//        mut query: Query<(&mut Transform, &Velocity), With<Crow>>,
+//    ) {
+//        if frame_counter.0 % 2 == 0 { //skip every other frame
+//            for (mut transform, velocity) in query.iter_mut() {
+//                transform.translation += velocity.0 * CROW_SPEED * time.delta_seconds();
+//            }
+//        }
+//        frame_counter.0 += 1;
+//    }
 
 fn borders(mut query: Query<&mut Transform, With<Crow>>) {
     for mut transform in query.iter_mut() {
