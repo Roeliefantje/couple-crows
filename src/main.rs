@@ -32,6 +32,7 @@ fn main() {
         .add_systems(Update, crow_behaviour)
         .add_systems(Update, borders)
         .add_system(Update, movement_system.system())
+        .register_component::<Velocity>()
         //Set background color to white
         .insert_resource(ClearColor(Color::WHITE))
         .run();
@@ -205,7 +206,7 @@ fn movement_system(
     time: Res<Time>,
     mut query: Query<(&mut Transform, &Velocity), With<Crow>>,
 ) {
-    if frame_counter.0 % 2 == 0 {
+    if frame_counter.0 % 2 == 0 { //skip every other frame
         for (mut transform, velocity) in query.iter_mut() {
             transform.translation += velocity.0 * CROW_SPEED * time.delta_seconds();
         }
