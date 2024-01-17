@@ -1,5 +1,5 @@
 {
     "rust-analyzer.linkedProjects": [
-        "/Users/jianingzhao/couple-crows/Cargo.toml"
+        "./Cargo.toml"
     ]
 }
