@@ -147,10 +147,6 @@ impl Grid {
         
     }
 
-    // fn cooridnate_to_grid_coordinate (&self, coordinate: f32) -> usize {
-    //      ((coordinate.abs() + if coordinate < 0.0 {0.0} else {self.size as f32 * self.cell_size / 2.0}) / self.cell_size) as usize % self.size
-    // }
-
     //Get all crows in a certain radius around a certain point
     // fn get_in_radius (&self, point: Vec3, radius: f32) -> Vec<&Transform> {
     //     let mut crows = Vec::new();
@@ -178,22 +174,6 @@ impl Grid {
     //     crows
     // }
 }
-
-
-// #[derive(Bundle)]
-// struct CrowBundle {
-//     pbr: SceneBundle,
-//     crow: Crow,
-// }
-
-// impl Default for CrowBundle {
-//     fn default() -> Self {
-//         Self {
-//             pbr: SceneBundle::default(),
-//             crow: Crow::default(),
-//         }
-//     }
-// }
 
 #[derive(Resource)]
 pub struct Animations(Vec<Handle<AnimationClip>>);
@@ -272,34 +252,6 @@ fn setup(
     });
 
     commands.insert_resource(Animations(vec![asset_server.load("crow1.glb#Animation0")]));
-
-    // Grid
-    // let mut grid = Grid::new(20, 1.0);
-
-    //paddle
-    // let size: usize = NUM_BOIDS as usize;
-    // let mut crows: Vec<CrowBundle> = Vec::with_capacity(size);
-    // let mut rng = thread_rng();
-
-    // for i in 0..size {
-    //     let x_coords = rng.gen_range(-10000..10000) as f32 / 1000.0;
-    //     let y_coords = rng.gen_range(-10000..10000) as f32 / 1000.0;
-    //     let z_coords = rng.gen_range(-10000..10000) as f32 / 1000.0;
-    //     let transform = Transform::from_xyz(x_coords, y_coords, z_coords).with_scale(Vec3::splat(0.02));
-    //     let crow = CrowBundle {
-    //         pbr: SceneBundle {
-    //             scene: asset_server.load("crow1.glb#Scene0"),
-    //             transform: transform,
-    //             ..default()
-    //         },
-    //         boid_entity: BoidEntity(i as usize)
-    //     };
-    //     crows.push(crow);
-    //     // grid.add_with_transform(&transform);
-    // }
-
-    // commands.spawn_batch(crows);
-    // commands.insert_resource(grid);
 
 }
 
@@ -480,10 +432,7 @@ fn move_entities(
                 }
                 // if amount_of_crows > 0 as usize {
                 //     println!("total_amount: {}, amount_of_crows: {}", total_amount, amount_of_crows);
-                // }
-                    
-                    
-                    
+                // }            
                 amount_of_crows_vec.push(total_amount)
             }
         }
