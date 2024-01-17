@@ -26,7 +26,7 @@ fn main() {
         .add_plugins(PanOrbitCameraPlugin)
         .add_systems(Update, bevy::window::close_on_esc)
         .add_systems(Startup, setup)
-        .add_systems(Update, run_animation)
+        //.add_systems(Update, run_animation)
         .add_systems(Update, system)
         .add_systems(Update, apply_velocity)
         .add_systems(Update, crow_behaviour)
@@ -153,7 +153,7 @@ fn setup(
     let mut grid = Grid::new(20, 1.0);
 
     //paddle
-    let size: usize = 1000;
+    let size: usize = 50000;
     let mut crows = Vec::with_capacity(size);
     let mut rng = thread_rng();
 
