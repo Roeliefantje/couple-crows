@@ -34,6 +34,8 @@ fn main() {
         .add_systems(Update, borders)
         //.add_system(Update, movement_system.system())
         .add_systems(Update, update_crow_lod)
+    //    .add_system(Update, movement_system.system())
+    //    .register_component::<Velocity>()
         //Set background color to white
         .insert_resource(ClearColor(Color::WHITE))
         .run();
@@ -283,21 +285,23 @@ fn system(mut gizmos: Gizmos) {
 //     }
 // }
 
+//    struct Velocity(Vec3);
+//    const CROW_SPEED: f32 = 2.0;
 // struct Velocity(Vec3);
 // const CROW_SPEED: f32 = 2.0;
 
-// fn movement_system(
-//     mut frame_counter: ResMut<FrameCounter>,
-//     time: Res<Time>,
-//     mut query: Query<(&mut Transform, &Velocity), With<Crow>>,
-// ) {
-//     if frame_counter.0 % 2 == 0 {
-//         for (mut transform, velocity) in query.iter_mut() {
-//             transform.translation += velocity.0 * CROW_SPEED * time.delta_seconds();
-//         }
-//     }
-//     frame_counter.0 += 1;
-// }
+//    fn movement_system(
+//        mut frame_counter: ResMut<FrameCounter>,
+//        time: Res<Time>,
+//        mut query: Query<(&mut Transform, &Velocity), With<Crow>>,
+//    ) {
+//        if frame_counter.0 % 2 == 0 { //skip every other frame
+//            for (mut transform, velocity) in query.iter_mut() {
+//                transform.translation += velocity.0 * CROW_SPEED * time.delta_seconds();
+//            }
+//        }
+//        frame_counter.0 += 1;
+//    }
 
 fn borders(mut query: Query<&mut Transform, With<Crow>>) {
     for mut transform in query.iter_mut() {
