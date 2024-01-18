@@ -390,7 +390,7 @@ fn move_entities(
     if !worker.ready() {
         return;
     }
-    let _move_entities_span = info_span!("move_entities", name = "move_entities").entered();
+    let move_entities_span = info_span!("move_entities", name = "move_entities").entered();
 
 
     let mut grid = Grid::new(GRID_SIZE as usize, CELL_SIZE);
