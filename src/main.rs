@@ -210,7 +210,7 @@ fn movement_system(
     time: Res<Time>,
     mut query: Query<(&mut Transform, &Velocity), With<Crow>>,
 ) {
-    if frame_counter.0 % 3 == 0 { //skip every other frame
+    if frame_counter.0 % 3 == 0 { //update every three frame
         for (mut transform, velocity) in query.iter_mut() {
             transform.translation += velocity.0 * CROW_SPEED * time.delta_seconds();
         }
