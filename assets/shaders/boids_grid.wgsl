@@ -32,7 +32,7 @@ var<storage> amount_of_crows_vec: array<u32>;
 @group(0) @binding(5)
 var<storage> crow_idxs: array<u32>;
 
-@compute @workgroup_size(1)
+@compute @workgroup_size(32)
 fn main(@builtin(global_invocation_id) invocation_id: vec3<u32>) {
 
     //let total_grids = arrayLength(&amount_of_crows_vec);

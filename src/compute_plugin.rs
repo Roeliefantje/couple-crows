@@ -373,7 +373,7 @@ async fn run_compute_shader(cr: &ComputeResources) -> Vec<Boid>{
         cpass.set_pipeline(&cr.pipeline);
         cpass.set_bind_group(0, &cr.bind_groups[cr.current_frame], &[]);
         cpass.insert_debug_marker("compute collatz iterations");
-        cpass.dispatch_workgroups(NUM_BOIDS as u32, 1, 1); // Number of cells to run, the (x,y,z) size of item being processed
+        cpass.dispatch_workgroups(NUM_BOIDS / 32 as u32, 1, 1); // Number of cells to run, the (x,y,z) size of item being processed
     }
 
     // Sets adds copy operation to command encoder.
