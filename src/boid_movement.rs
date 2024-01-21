@@ -1,21 +1,35 @@
 use bevy::{gizmos, math::*, prelude::*};
 
 use crate::{Crow, grid_architecture::Grid};
+use crate::MapIdToLOD;
+use crate::LOD;
+use crate::CrowModels;
 
 const SEPERATION_RADIUS: f32 = 1.2;
 const VISION_RADIUS: f32 = 3.0;
 const COHESION_FACTOR: f32 = 0.01;
 
-pub fn apply_velocity(mut query: Query<(&mut Transform, &Crow)>, time: Res<Time>, grid: Res<Grid>, mut command : Commands) {
+pub fn apply_velocity(mut query: Query<(&mut Handle<Scene>, &mut Crow, &mut Transform)>, time: Res<Time>, grid: Res<Grid>, mut command : Commands, lod_map: Res<MapIdToLOD>, models: Res<CrowModels>) {
     
     let mut new_grid = Grid::new(grid.size, grid.cell_size);
-    for (mut transform, crow) in query.iter_mut() {
+    for (mut scene_handle, mut crow, mut transform) in query.iter_mut() {
         //transform.translation += crow.vel * time.delta_seconds();
         let new_pos = transform.translation + crow.vel * time.delta_seconds();
         transform.look_at(new_pos, Vec3::Y);
         transform.translation = new_pos;
+        
         //println!("{}", crow.vel);
-        new_grid.add_with_transform(&transform);
+        let new_lod = lod_map.map.get(&crow.id).unwrap().clone();
+        if crow.lod != new_lod {
+            *scene_handle = match new_lod {
+                LOD::High => models.high.clone(),
+                LOD::Medium => models.medium.clone(),
+                LOD::Low => models.low.clone(),
+            };
+            crow.lod = new_lod;
+        }
+
+        new_grid.add_with_transform_and_id(&transform, crow.id);
     }
     command.insert_resource(new_grid);
 }

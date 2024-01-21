@@ -5,6 +5,7 @@ use bevy_panorbit_camera::{PanOrbitCamera, PanOrbitCameraPlugin};
 use rand::{thread_rng, Rng};
 use std::f32::consts::PI;
 use std::{thread, time};
+use std::collections::HashMap;
 // use bevy_debug_camera::{DebugCamera, DebugCameraPlugin};
 
 //[MODULES]
@@ -18,6 +19,7 @@ mod grid_architecture;
 pub const HEIGHT: f32 = 720.0;
 pub const WIDTH: f32 = 1080.0;
 pub const BOX_SIZE: f32 = 20.;
+pub const LOD_DIST: f32 = 20.;
 
 fn main() {
     App::new()
@@ -26,14 +28,13 @@ fn main() {
         .add_plugins(FrameTimeDiagnosticsPlugin::default())
         .add_plugins(PanOrbitCameraPlugin)
         .add_systems(Update, bevy::window::close_on_esc)
-        .add_systems(Startup, setup)
+        .add_systems(Startup, setup.after(startup_lod))
         .add_systems(Update, run_animation)
         .add_systems(Update, system)
+        //.add_systems(Update, update_lod)
         .add_systems(Update, apply_velocity)
         .add_systems(Update, crow_behaviour)
         .add_systems(Update, borders)
-        //.add_system(Update, movement_system.system())
-        .add_systems(Update, update_crow_lod)
     //    .add_system(Update, movement_system.system())
     //    .register_component::<Velocity>()
         //Set background color to white
@@ -42,9 +43,9 @@ fn main() {
 }
 
 
-
 #[derive(Component)]
 struct Crow {
+    id: usize,
     vel: Vec3,
     lod: LOD
 }
@@ -57,6 +58,7 @@ impl Default for Crow {
         let y_coords = rng.gen_range(0..200) as f32 / 100.0;
         let z_coords = rng.gen_range(0..200) as f32 / 100.0;
         Self {
+            id: 0,
             vel: Vec3::new(x_coords, y_coords, z_coords).normalize(),
             lod : LOD::High
         }
@@ -81,7 +83,13 @@ impl Default for CrowBundle {
 #[derive(Resource)]
 pub struct Animations(Vec<Handle<AnimationClip>>);
 
-#[derive(PartialEq, Eq)]
+#[derive(Resource)]
+pub struct GridZone{
+    far_corner: (usize, usize, usize),
+    near_corner: (usize, usize, usize)
+}
+
+#[derive(PartialEq, Eq, Clone)]
 enum LOD{
     High,
     Medium,
@@ -93,6 +101,11 @@ struct CrowModels{
     high : Handle<Scene>,
     medium: Handle<Scene>,
     low: Handle<Scene>
+}
+
+#[derive(Resource)]
+struct MapIdToLOD{
+    map: HashMap<usize, LOD>
 }
 
 #[derive(Component)]
@@ -129,10 +142,11 @@ fn setup(
     asset_server: Res<AssetServer>
 ) {
 
+    let camera_transform = Transform::from_translation(Vec3::new(0.0, 1.5, 5.0));
     // Flying Camera
     commands.spawn((
         Camera3dBundle {
-            transform: Transform::from_translation(Vec3::new(0.0, 1.5, 5.0)),
+            transform: camera_transform,
             ..default()
         },
         PanOrbitCamera::default(),
@@ -173,6 +187,10 @@ fn setup(
 
     commands.insert_resource(FrameCounter(0)); //initialize frame counter
 
+    let mut id_to_lod = MapIdToLOD{
+        map: HashMap::new()
+    }; 
+
     // direction light (sun)
     commands.spawn(DirectionalLightBundle {
         directional_light: DirectionalLight {
@@ -209,12 +227,17 @@ fn setup(
     // Grid
     let mut grid = Grid::new(20, 1.0);
 
+    commands.insert_resource(GridZone{
+        far_corner: grid.get_grid_far_corner(&camera_transform),
+        near_corner: grid.get_lod_corner_cell(&camera_transform, LOD_DIST),
+    });
+
     //paddle
-    let size: usize = 2000;
+    let size: usize = 3000;
     let mut crows = Vec::with_capacity(size);
     let mut rng = thread_rng();
 
-    for _ in 0..size {
+    for current_id in 0..size {
         let x_coords = rng.gen_range(-10000..10000) as f32 / 1000.0;
         let y_coords = rng.gen_range(-10000..10000) as f32 / 1000.0;
         let z_coords = rng.gen_range(-10000..10000) as f32 / 1000.0;
@@ -225,50 +248,58 @@ fn setup(
             transform,
             ..default()
             },
-        ..default()
+            crow: Crow{
+                id: current_id,
+                ..default()
+            }
         };
+        id_to_lod.map.insert(current_id, LOD::High);
+        let crow_id = crow.crow.id.clone();
         crows.push(crow);
-        grid.add_with_transform(&transform);
+        grid.add_with_transform_and_id(&transform, crow_id);
     }
     commands.spawn_batch(crows);
     commands.insert_resource(grid);
+    commands.insert_resource(id_to_lod);
 }
 
-fn update_crow_lod(
-    mut commands: Commands,
+fn startup_lod(
     camera_query: Query<&Transform, (With<Camera>, Without<LODCorner>)>,
     mut crow_query: Query<(&mut Handle<Scene>, &mut Crow, &Transform), Without<LODCorner>>,
     grid: Res<Grid>,
+    mut lod_map: ResMut<MapIdToLOD>,
     models: Res<CrowModels>,
-    mut marker_query: Query<(&mut Transform, &LODCorner)>
 ) {
     let camera_transform = camera_query.single();
-    //let (mut marker_trans, _) = marker_query.single_mut();
+    lod_map.map = grid.get_all_lod(&camera_transform, 20.0);
+}
 
-    let affected_crows = grid.get_crows_in_lod_change_area(camera_transform, 50.0);
-    let (x, y, z) = grid.get_lod_corner_cell(camera_transform, 30.0);
-    //marker_trans.translation = Vec3::new(grid.grid_coordinate_to_coordinate(x), grid.grid_coordinate_to_coordinate(y), grid.grid_coordinate_to_coordinate(z));
-
-
-    for (mut scene_handle, mut crow, transform) in crow_query.iter_mut() {
-        let distance = camera_transform.translation.distance(transform.translation);
-        let new_lod = if distance < 30.0 {
-            LOD::High
-        } else if distance < 50.0 {
-            LOD::Medium
-        } else {
-            LOD::Low
-        };
-
-        if crow.lod != new_lod {
-            *scene_handle = match new_lod {
-                LOD::High => models.high.clone(),
-                LOD::Medium => models.medium.clone(),
-                LOD::Low => models.low.clone(),
-            };
-            crow.lod = new_lod;
+fn update_lod(
+    camera_query: Query<&Transform, (With<Camera>, Without<LODCorner>)>,
+    mut crow_query: Query<(&mut Handle<Scene>, &mut Crow, &Transform), Without<LODCorner>>,
+    grid: Res<Grid>,
+    previous_grid_zone: Res<GridZone>,
+    models: Res<CrowModels>,
+    mut lod_map: ResMut<MapIdToLOD>
+){
+    let camera_transform = camera_query.single();
+    let new_grid_zone = GridZone{
+        far_corner: grid.get_grid_far_corner(&camera_transform),
+        near_corner: grid.get_lod_corner_cell(&camera_transform, LOD_DIST),
+    };
+    if previous_grid_zone.far_corner != new_grid_zone.far_corner{
+        lod_map.map = grid.get_all_lod(camera_transform, LOD_DIST);
+    }
+    else{
+        let affected_crows = grid.get_crows_in_transition(
+            &new_grid_zone,
+            camera_transform
+        );
+        for (id, lod) in affected_crows{
+            lod_map.map.insert(id, lod);
         }
     }
+    let previous_grid_zone = new_grid_zone;
 }
 
 fn system(mut gizmos: Gizmos) {

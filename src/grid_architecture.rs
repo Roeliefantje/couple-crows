@@ -1,5 +1,8 @@
 use std::fmt;
+use std::collections::HashMap;
 
+use crate::LOD;
+use crate::GridZone;
 use bevy::{math::*, prelude::*};
 
 fn main() {
@@ -9,14 +12,19 @@ fn main() {
 #[derive(Resource)]
 
 //Grid struct to store all crows in a grid, Grid is always centered at 0,0,0
-pub struct Grid {
+pub struct Grid{
     pub grid: Vec<Vec<Vec<GridCell>>>,
     pub size: usize,
     pub cell_size: f32,
 }
 
-pub struct GridCell {
-    crows: Vec<Transform>,
+pub struct GridCell{
+    crows: Vec<GridItem>
+}
+
+pub struct GridItem{
+    transform: Transform,
+    id: usize
 }
 
 impl Default for Grid{
@@ -25,7 +33,7 @@ impl Default for Grid{
     }
 }
 
-impl Grid {
+impl Grid{
     //Create new grid with size*size*size, size must be even
     pub fn new (size: usize, cell_size: f32) -> Self {
         let mut grid = Vec::with_capacity(size);
@@ -48,14 +56,14 @@ impl Grid {
     }
 
     //Add a crow to the grid by its transform centered around (0,0,0)
-    pub fn add_with_transform (&mut self, transform: &Transform) {
+    pub fn add_with_transform_and_id (&mut self, transform: &Transform, id: usize) {
         //Convert the possible negative coordinates to positive 
         //meaning that negative coordinates are between 0 and size/2 
         //and positive coordinates are between size/2 and size 
         let x = self.cooridnate_to_grid_coordinate(transform.translation.x) % self.size;
         let y = self.cooridnate_to_grid_coordinate(transform.translation.y) % self.size;
         let z = self.cooridnate_to_grid_coordinate(transform.translation.z) % self.size;
-        self.grid[x][y][z].crows.push(*transform);
+        self.grid[x][y][z].crows.push(GridItem{transform: *transform, id: id});
     }
 
     pub fn cooridnate_to_grid_coordinate(&self, coordinate: f32) -> usize {
@@ -83,11 +91,12 @@ impl Grid {
                     //Iterate over all crows in the cell
                     for crow in &self.grid[x][y][z].crows {
                         //Check if the crow is in the radius
-                        if crow.translation.distance(point) < radius {
-                            crows.push(crow);
+                        if crow.transform.translation.distance(point) < radius {
+                            crows.push(&crow.transform);
                         }
                     }
                 }
+
             }
         }
         crows
@@ -103,12 +112,43 @@ impl Grid {
         let cell_z = self.cooridnate_to_grid_coordinate((1.0 - t) * p.z);
     
         return (cell_x, cell_y, cell_z);
-    }    
+    }
 
-    fn gather_crows_from_corner<'a> (&'a self, crows: &mut Vec<&'a Transform>, c_x: usize, c_y: usize, c_z: usize, camera_transform: &Transform){
-        let sign_x = if camera_transform.translation.x < 0.0 { -1.0 } else { 1.0 }; 
-        let sign_y = if camera_transform.translation.y < 0.0 { -1.0 } else { 1.0 }; 
-        let sign_z = if camera_transform.translation.z < 0.0 { -1.0 } else { 1.0 }; 
+    pub fn get_grid_far_corner (&self, camera_transform: &Transform)  -> (usize, usize, usize){
+        return (
+            if camera_transform.translation.x < 0.0 { self.size } else { 0 },
+            if camera_transform.translation.y < 0.0 { self.size } else { 0 }, 
+            if camera_transform.translation.z < 0.0 { self.size } else { 0 }
+        )
+    }
+
+    pub fn get_crows_in_transition(&self, new_corner: &GridZone, camera_transform: &Transform) -> Vec<(usize, LOD)> {
+        let mut crows = Vec::new();
+        let mut crows_vec = Vec::new();
+        let (sign_x, sign_y, sign_z) = Grid::get_camera_signs(camera_transform);
+        self.gather_crows_from_corner(&mut crows_vec, new_corner.near_corner, camera_transform);
+        for crw in crows_vec {
+            crows.push((crw.id, LOD::High));
+        }
+        crows_vec = Vec::new();
+        self.gather_crows_from_corner(&mut crows_vec, ((new_corner.near_corner.0 as f32 - sign_x) as usize, (new_corner.near_corner.1 as f32 - sign_x) as usize, (new_corner.near_corner.2 as f32 - sign_x) as usize), camera_transform);
+        for crw in crows_vec {
+            crows.push((crw.id, LOD::Low));
+        }
+        crows
+    }
+
+    fn get_camera_signs(camera_transform: &Transform) -> (f32, f32, f32){
+        return(
+            if camera_transform.translation.x < 0.0 { -1.0 } else { 1.0 },
+            if camera_transform.translation.y < 0.0 { -1.0 } else { 1.0 }, 
+            if camera_transform.translation.z < 0.0 { -1.0 } else { 1.0 }
+        )
+    }
+
+    fn gather_crows_from_corner<'a> (&'a self, crows: &mut Vec<&'a GridItem>, corner: (usize, usize, usize), camera_transform: &Transform, ){
+        let (c_x, c_y, c_z) = corner;
+        let (sign_x, sign_y, sign_z) = Grid::get_camera_signs(camera_transform);
         let mut x = c_x;
         let mut y = c_y;
         let mut z = c_z;
@@ -153,28 +193,46 @@ impl Grid {
         }
     }
 
-    pub fn get_crows_in_lod_change_area(&self, camera_transform: &Transform, lod_dist: f32) -> (Vec<&Transform>, Vec<&Transform>) {
+    pub fn get_all_lod(&self, camera_transform: &Transform, lod_dist: f32) -> HashMap<usize, LOD> {
         let mut close_crows = Vec::new();
         let mut far_crows = Vec::new();
-        let sign_x = if camera_transform.translation.x < 0.0 { -1.0 } else { 1.0 }; 
-        let sign_y = if camera_transform.translation.y < 0.0 { -1.0 } else { 1.0 }; 
-        let sign_z = if camera_transform.translation.z < 0.0 { -1.0 } else { 1.0 }; 
+        let (sign_x, sign_y, sign_z) = Grid::get_camera_signs(camera_transform);
         let (c_x, c_y, c_z) = self.get_lod_corner_cell(camera_transform, lod_dist);
-        self.gather_crows_from_corner(&mut close_crows, c_x, c_y, c_z, camera_transform);
-        self.gather_crows_from_corner(
-            &mut far_crows, 
-            (c_x as i32 + 1 * (-sign_x as i32)).max(0).min(self.size as i32 - 1) as usize, 
-            (c_y as i32 + 1 * (-sign_y as i32)).max(0).min(self.size as i32 - 1) as usize, 
-            (c_z as i32 + 1 * (-sign_z as i32)).max(0).min(self.size as i32 - 1) as usize, 
-            camera_transform
-        );
-    
-        info!("near layer: {}, far layer: {}", close_crows.len(), far_crows.len());
-        (close_crows, far_crows)
-    }    
+        for x in 0..self.size {
+            for y in 0..self.size {
+                for z in 0..self.size {
+                    for crow in &self.grid[x][y][z].crows {
+                        if
+                            ((sign_x < 0.0 && c_x < x) || (sign_x > 0.0 && c_x > x)) &&
+                            ((sign_y < 0.0 && c_y < y) || (sign_y > 0.0 && c_y > y)) &&
+                            ((sign_z < 0.0 && c_z < z) || (sign_z > 0.0 && c_z > z))
+                        {
+                            far_crows.push(crow.id);
+                        } else{
+                            close_crows.push(crow.id);
+                        }
+                    }
+                }
+            }
+        }
+        let mut map = HashMap::new();
+        for crow_id in close_crows{
+            map.insert(crow_id, LOD::High);
+        }
+        for crow_id in far_crows{
+            map.insert(crow_id, LOD::Low);
+        }
+        map
+    }
 }
 
-impl fmt::Debug for Grid {
+impl fmt::Debug for GridItem {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "(id: {})", self.id)
+    }
+}
+
+impl fmt::Debug for Grid{
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "Grid {{ size: {}, cell_size: {}, grid: [", self.size, self.cell_size)?;
         
