@@ -1,6 +1,7 @@
 use bevy::diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin};
 use bevy::{gizmos, math::*, prelude::*};
 use bevy::{pbr::CascadeShadowConfigBuilder};
+use bevy::prelude::*;
 use bevy_panorbit_camera::{PanOrbitCamera, PanOrbitCameraPlugin};
 use rand::{thread_rng, Rng};
 use std::f32::consts::PI;
@@ -35,8 +36,7 @@ fn main() {
         .add_systems(Update, apply_velocity)
         .add_systems(Update, crow_behaviour)
         .add_systems(Update, borders)
-    //    .add_system(Update, movement_system.system())
-    //    .register_component::<Velocity>()
+        .add_systems(Update, movement_system)
         //Set background color to white
         .insert_resource(ClearColor(Color::WHITE))
         .run();
@@ -96,6 +96,7 @@ enum LOD{
     Low
 }
 
+
 #[derive(Resource)]
 struct CrowModels{
     high : Handle<Scene>,
@@ -132,8 +133,6 @@ pub fn run_animation(
     // }
 }
 
-#[derive(Resource)]
-struct FrameCounter(usize);
 
 fn setup(
     mut commands: Commands,
@@ -316,23 +315,27 @@ fn system(mut gizmos: Gizmos) {
 //     }
 // }
 
-//    struct Velocity(Vec3);
-//    const CROW_SPEED: f32 = 2.0;
-// struct Velocity(Vec3);
-// const CROW_SPEED: f32 = 2.0;
 
-//    fn movement_system(
-//        mut frame_counter: ResMut<FrameCounter>,
-//        time: Res<Time>,
-//        mut query: Query<(&mut Transform, &Velocity), With<Crow>>,
-//    ) {
-//        if frame_counter.0 % 2 == 0 { //skip every other frame
-//            for (mut transform, velocity) in query.iter_mut() {
-//                transform.translation += velocity.0 * CROW_SPEED * time.delta_seconds();
-//            }
-//        }
-//        frame_counter.0 += 1;
-//    }
+#[derive(Component)]
+struct Velocity(Vec3);
+const CROW_SPEED: f32 = 2.0;
+
+
+#[derive(Resource, Default)]
+pub struct FrameCounter(u64);
+
+fn movement_system(
+    mut frame_counter: ResMut<FrameCounter>,
+    time: Res<Time>,
+    mut query: Query<(&mut Transform, &Velocity), With<Crow>>,
+) {
+    if frame_counter.0 % 3 == 0 { //update every three frame
+        for (mut transform, velocity) in query.iter_mut() {
+            transform.translation += velocity.0 * CROW_SPEED * time.delta_seconds();
+        }
+    }
+    frame_counter.0 += 1;
+}
 
 fn borders(mut query: Query<&mut Transform, With<Crow>>) {
     for mut transform in query.iter_mut() {
