@@ -1,6 +1,8 @@
 //! Example showing how to calculate boids data from compute shaders
 //! For now they are stupid and just fly straight, need to fix this later on.
 //! Reimplementation of https://github.com/gfx-rs/wgpu-rs/blob/master/examples/boids/main.rs
+//! 
+//! Add a system to startup in order to have the Resources for the Render Device and the queue
 
 use bevy::diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin};
 use bevy::ecs::world;
@@ -14,45 +16,16 @@ use rand::distributions::{Distribution, Uniform};
 use rand::{thread_rng, Rng};
 use std::f32::consts::PI;
 
-const NUM_BOIDS: u32 = 50000;
+// const NUM_BOIDS: u32 = 50000;
 
-pub const BOX_SIZE: f32 = 40.;
-const GRID_SIZE: f32 = 20.0;
-const CELL_SIZE: f32 = 0.1;
+pub mod shared;
+use shared::*;
 
-// Boid struct that gets transfered over to the compute shader which includes all the information needed for the computation.
-#[derive(ShaderType, Pod, Zeroable, Clone, Copy)]
-#[repr(C)]
-struct Boid {
-    pos: Vec4,
-    vel: Vec4,
-}
+mod compute_plugin;
+use compute_plugin::ComputePlugin;
 
-// Params we can set in order to change the behaviour of the compute shader.
-#[derive(ShaderType, Pod, Zeroable, Clone, Copy)]
-#[repr(C)]
-struct Params {
-    speed: f32,
-    seperation_distance: f32,
-    alignment_distance: f32,
-    cohesion_distance: f32,
-    seperation_scale: f32,
-    alignment_scale: f32,
-    cohesion_scale: f32,
-    grid_size: f32,
-    cell_size: f32,
-}
 
-//Identifier in order to link the boids data to a texture.
-#[derive(Component)]
-struct BoidEntity(pub usize);
 
-//The bundle that gets spawned in with the texture / mesh of the boid
-#[derive(Bundle)]
-struct CrowBundle {
-    pbr: SceneBundle,
-    boid_entity: BoidEntity,
-}
 
 //Main, adding some useful plugins that allow for some easy logging.
 fn main() {
@@ -61,118 +34,16 @@ fn main() {
         .add_plugins(LogDiagnosticsPlugin::default())
         .add_plugins(FrameTimeDiagnosticsPlugin::default())
         .add_plugins(PanOrbitCameraPlugin)
+        .add_plugins(ComputePlugin)
         .insert_resource(AssetMetaCheck::Never)
-        .add_plugins(AppComputePlugin)
-        .add_plugins(AppComputeWorkerPlugin::<BoidWorker>::default())
-        .insert_resource(ClearColor(Color::DARK_GRAY))
+        // .add_plugins(AppComputePlugin)
+        // .add_plugins(AppComputeWorkerPlugin::<BoidWorker>::default())
+        .insert_resource(ClearColor(Color::WHITE))
         .add_systems(Startup, setup)
-        .add_systems(Update, move_entities)
+        //.add_systems(Update, move_entities)
         .add_systems(Update, system)
 //        .add_systems(Update, borders)
         .run()
-}
-
-//The main setup of the program. Basically just creates all the (World) boids and the setup for the camera.
-//So it does not create the position etc, but it it creates the mesh for them and has a unique idx we use to transfer the boids data.
-//         .add_systems(Update, run_animation)
-//         .add_systems(Update, system)
-//         .add_systems(Update, apply_velocity)
-//         .add_systems(Update, crow_behaviour)
-        
-//         .run();
-// }
-
-#[derive(Resource)]
-
-//Grid struct to store all crows in a grid, Grid is always centered at 0,0,0
-struct Grid {
-    grid: Vec<Vec<Vec<GridCell>>>,
-    size: usize,
-    cell_size: f32,
-}
-
-struct GridCell {
-    crows: Vec<usize>,
-}
-
-impl Default for Grid{
-    fn default() -> Self {
-        Self::new(20, 1.0)
-    }
-}
-
-impl Grid {
-    //Create new grid with size*size*size, size must be even
-    fn new (size: usize, cell_size: f32) -> Self {
-        let mut grid = Vec::with_capacity(size);
-        for _x in 0..size {
-            let mut grid_x = Vec::with_capacity(size);
-            for _y in 0..size {
-                let mut grid_y = Vec::with_capacity(size);
-                for _z in 0..size {
-                    grid_y.push(GridCell{crows: Vec::new()});
-                }
-                grid_x.push(grid_y);
-            }
-            grid.push(grid_x);
-        }
-        Self {
-            grid,
-            size,
-            cell_size,
-        }
-    }
-
-    //Add a crow to the grid by its transform centered around (0,0,0)
-    fn add_with_transform (&mut self, transform: &Transform, idx: &usize) {
-        //Convert the possible negative coordinates to positive 
-        //meaning that negative coordinates are between 0 and size/2 
-        //and positive coordinates are between size/2 and size
-        // println!("Original Coords x: {}", transform.translation.x);
-        // println!("Original Coords y: {}", transform.translation.y);
-        // println!("Original Coords z: {}", transform.translation.z);
-        let x = self.cooridnate_to_grid_coordinate(transform.translation.x);
-        let y = self.cooridnate_to_grid_coordinate(transform.translation.y);
-        let z = self.cooridnate_to_grid_coordinate(transform.translation.z);
-        // println!("Grid coords x: {}", x);
-        // println!("Grid coords y: {}", y);
-        // println!("Grid coords z: {}", z);
-        self.grid[x][y][z].crows.push(*idx);
-    }
-
-    fn cooridnate_to_grid_coordinate (&self, coordinate: f32) -> usize {
-        //negative value would be -1 + 2 if size is say 4, resulting in 1, positive values will be 1 + 2 = 3, so i
-        let val = ((coordinate / self.cell_size) + (self.size as f32 * self.cell_size * 0.5)) as usize % self.size;
-        val
-        
-    }
-
-    //Get all crows in a certain radius around a certain point
-    // fn get_in_radius (&self, point: Vec3, radius: f32) -> Vec<&Transform> {
-    //     let mut crows = Vec::new();
-    //     //Get grid coordinates of the potential affected cells
-    //     let min_x = self.cooridnate_to_grid_coordinate(point.x - radius).max(0);
-    //     let max_x = self.cooridnate_to_grid_coordinate(point.x + radius).min(self.size);
-    //     let min_y = self.cooridnate_to_grid_coordinate(point.y - radius).max(0);
-    //     let max_y = self.cooridnate_to_grid_coordinate(point.y + radius).min(self.size);
-    //     let min_z = self.cooridnate_to_grid_coordinate(point.z - radius).max(0);
-    //     let max_z = self.cooridnate_to_grid_coordinate(point.z + radius).min(self.size);
-    //     //Iterate over all cells in the area grid
-    //     for x in min_x..max_x {
-    //         for y in min_y..max_y {
-    //             for z in min_z..max_z {
-    //                 //Iterate over all crows in the cell
-    //                 for crow in &self.grid[x][y][z].crows {
-    //                     //Check if the crow is in the radius
-    //                     if crow.translation.distance(point) < radius {
-    //                         crows.push(crow);
-    //                     }
-    //                 }
-    //             }
-    //         }
-    //     }
-    //     crows
-    // }
 }
 
 #[derive(Resource)]
@@ -253,6 +124,20 @@ fn setup(
 
     commands.insert_resource(Animations(vec![asset_server.load("crow1.glb#Animation0")]));
 
+    let mut crows: Vec<CrowBundle> = Vec::with_capacity(NUM_BOIDS as usize);
+    for i in 0..NUM_BOIDS {
+        crows.push(CrowBundle {
+            pbr: SceneBundle {
+                scene: asset_server.load("crow1.glb#Scene0"),
+                transform: Transform::default().with_scale(Vec3::splat(0.02)),
+                ..default()
+            },
+            boid_entity: BoidEntity(i as usize)
+        });
+    }
+
+    commands.spawn_batch(crows);
+
 }
 
 
@@ -278,17 +163,17 @@ impl ComputeWorker for BoidWorker {
     fn build(world: &mut World) -> AppComputeWorker<Self> {
 
         let asset_server: &AssetServer = world.resource();
-        let params = Params {
-            speed: 0.7,
-            seperation_distance: 0.03,
-            alignment_distance: 0.1,
-            cohesion_distance: 0.1,
-            seperation_scale: 0.4,
-            alignment_scale: 1.,
-            cohesion_scale: 1.,
-            grid_size: GRID_SIZE,
-            cell_size: CELL_SIZE
-        };
+        let params = [
+            0.7, //speed
+            0.03, //seperation d
+            0.1, // alignment d
+            0.1, // cohesion d
+            0.4, // seperation s
+            1., // alignment s
+            1., // cohesion s
+            GRID_SIZE,
+            CELL_SIZE
+        ];
 
         //Init grid
         let mut grid = Grid::new(GRID_SIZE as usize, CELL_SIZE);
@@ -370,7 +255,7 @@ impl ComputeWorker for BoidWorker {
             .add_staging("amount_of_crows_vec", &amount_of_crows_vec)
             .add_staging("crow_idxs", &crow_idxs)
             .add_pass::<BoidsShader>(
-                [NUM_BOIDS, 1, 1],
+                [NUM_BOIDS / 32 as u32, 1, 1],
                 &["params", "delta_time", "boids_src", "boids_dst", "amount_of_crows_vec", "crow_idxs"],
             )
             .add_swap("boids_src", "boids_dst")
