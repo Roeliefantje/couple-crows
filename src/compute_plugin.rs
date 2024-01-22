@@ -90,6 +90,7 @@ impl Plugin for ComputePlugin {
                         println!("total_amount: {}, amount_of_crows: {}", total_amount, amount_of_crows);
                     }
                     
+
                     
                     
                     amount_of_crows_vec.push(total_amount)
@@ -109,6 +110,7 @@ impl Plugin for ComputePlugin {
             std::panic::set_hook(Box::new(console_error_panic_hook::hook));
             console_log::init().expect("could not initialize logger");
             wasm_bindgen_futures::spawn_local(async move {prepare_compute(app, &vec![1233, 22343, 3234234, 42234, 52423]).await});
+            
         }
     }
 }
@@ -292,7 +294,6 @@ fn run_compute(
     {
         // env_logger::init();
         let boids = pollster::block_on(run_compute_inner(&cr));
-
         q_boid
         .iter_mut()
         .for_each(|(mut transform, boid_entity)| {

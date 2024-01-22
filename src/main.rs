@@ -36,13 +36,9 @@ fn main() {
         .add_plugins(PanOrbitCameraPlugin)
         .add_plugins(ComputePlugin)
         .insert_resource(AssetMetaCheck::Never)
-        // .add_plugins(AppComputePlugin)
-        // .add_plugins(AppComputeWorkerPlugin::<BoidWorker>::default())
         .insert_resource(ClearColor(Color::WHITE))
         .add_systems(Startup, setup)
-        //.add_systems(Update, move_entities)
         .add_systems(Update, system)
-//        .add_systems(Update, borders)
         .run()
 }
 
@@ -123,6 +119,10 @@ fn setup(
     });
 
     commands.insert_resource(Animations(vec![asset_server.load("crow1.glb#Animation0")]));
+
+    let glb_scene: Handle<Mesh> = asset_server.load("crow.glb#Scene0");
+    
+
 
     let mut crows: Vec<CrowBundle> = Vec::with_capacity(NUM_BOIDS as usize);
     for i in 0..NUM_BOIDS {
