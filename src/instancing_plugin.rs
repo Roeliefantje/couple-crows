@@ -26,51 +26,32 @@ use bytemuck::{Pod, Zeroable};
 
 use crate::shared::*;
 
-#[derive(Clone, Copy, Pod, Zeroable)]
-#[repr(C)]
-struct InstanceData {
-    position: Vec3,
-    scale: f32,
-    color: [f32; 4],
-}
 
 pub struct Instancing_Plugin;
 
 impl Plugin for Instancing_Plugin {
     fn build(&self, app: &mut App) {
-        app.add_plugin(CustomMaterialPlugin)
+        app.add_plugins(CustomMaterialPlugin)
            .add_systems(Startup, setup);
     }
 }
 
 fn setup(mut commands: Commands, mut meshes: ResMut<Assets<Mesh>>) {
+    // println!("We get here");
     commands.spawn((
-        meshes.add(shape::Cube {size: 0.1}),
+        meshes.add(Mesh::from(shape::Cube {size: 0.2})),
         SpatialBundle::INHERITED_IDENTITY,
         InstanceMaterialData(
             (0..NUM_BOIDS).map(|_| InstanceData {
-                position: Vec3::new(0, 0, 0),
+                position: Vec3::new(0.0, 0.0, 0.0),
                 scale: 0.2,
-                color: Color::hlsa(15, 15, 15, 1.0).as_rgba_f32()
+                color: Color::hsla(0.0, 0.0, 0.0, 1.0).as_rgba_f32()
             }).collect()
         ),
         NoFrustumCulling
-    ))
+    ));
 }
 
-
-#[derive(Component, Deref)]
-struct InstanceMaterialData(Vec<InstanceData>);
-
-impl ExtractComponent for InstanceMaterialData {
-    type QueryData = &'static InstanceMaterialData;
-    type QueryFilter = ();
-    type Out = Self;
-
-    fn extract_component(item: QueryItem<'_, Self::QueryData>) -> Option<Self> {
-        Some(InstanceMaterialData(item.0.clone()))
-    }
-}
 
 pub struct CustomMaterialPlugin;
 
@@ -192,6 +173,14 @@ impl SpecializedMeshPipeline for CustomPipeline {
     ) -> Result<RenderPipelineDescriptor, SpecializedMeshPipelineError> {
         let mut descriptor = self.mesh_pipeline.specialize(key, layout)?;
 
+        // meshes typically live in bind group 2. because we are using bindgroup 1
+        // we need to add MESH_BINDGROUP_1 shader def so that the bindings are correctly
+        // linked in the shader
+        descriptor
+            .vertex
+            .shader_defs
+            .push("MESH_BINDGROUP_1".into());
+
         descriptor.vertex.shader = self.shader.clone();
         descriptor.vertex.buffers.push(VertexBufferLayout {
             array_stride: std::mem::size_of::<InstanceData>() as u64,
@@ -225,8 +214,8 @@ pub struct DrawMeshInstanced;
 
 impl<P: PhaseItem> RenderCommand<P> for DrawMeshInstanced {
     type Param = (SRes<RenderAssets<Mesh>>, SRes<RenderMeshInstances>);
-    type ViewQuery = ();
-    type ItemQuery = Read<InstanceBuffer>;
+    type ViewWorldQuery = ();
+    type ItemWorldQuery = Read<InstanceBuffer>;
 
     #[inline]
     fn render<'w>(
@@ -239,8 +228,9 @@ impl<P: PhaseItem> RenderCommand<P> for DrawMeshInstanced {
         let Some(mesh_instance) = render_mesh_instances.get(&item.entity()) else {
             return RenderCommandResult::Failure;
         };
-        let Some(gpu_mesh) = meshes.into_inner().get(mesh_instance.mesh_asset_id) else {
-            return RenderCommandResult::Failure;
+        let gpu_mesh = match meshes.into_inner().get(mesh_instance.mesh_asset_id) {
+            Some(gpu_mesh) => gpu_mesh,
+            None => return RenderCommandResult::Failure,
         };
 
         pass.set_vertex_buffer(0, gpu_mesh.vertex_buffer.slice(..));

@@ -2,10 +2,15 @@ use bevy::{
     prelude::*,
     core::Pod,
     render::render_resource::ShaderType,
+    render::extract_component::{ExtractComponent, ExtractComponentPlugin},
+    ecs::{
+        query::QueryItem,
+        system::{lifetimeless::*, SystemParamItem},
+    }
 };
 use bytemuck::Zeroable;
 
-pub const NUM_BOIDS: u32 = 50000;
+pub const NUM_BOIDS: u32 = 100000;
 pub const BOX_SIZE: f32 = 40.;
 pub const GRID_SIZE: f32 = 20.0;
 pub const CELL_SIZE: f32 = 0.1;
@@ -138,4 +143,26 @@ impl Grid {
     //     }
     //     crows
     // }
+}
+
+
+#[derive(Clone, Copy, Pod, Zeroable)]
+#[repr(C)]
+pub struct InstanceData {
+    pub position: Vec3,
+    pub scale: f32,
+    pub color: [f32; 4],
+}
+
+#[derive(Component, Deref)]
+pub struct InstanceMaterialData(pub Vec<InstanceData>);
+
+impl ExtractComponent for InstanceMaterialData {
+    type Query = &'static InstanceMaterialData;
+    type Filter = ();
+    type Out = Self;
+
+    fn extract_component(item: QueryItem<'_, Self::Query>) -> Option<Self> {
+        Some(InstanceMaterialData(item.0.clone()))
+    }
 }

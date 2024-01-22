@@ -8,7 +8,7 @@ use bevy::{
         renderer::RenderDevice,
         render_resource::*,
     },
-    ecs::storage,
+    ecs::{storage, world},
     core::Pod
 };
 // use env_logger::fmt::buffer;
@@ -284,7 +284,8 @@ fn create_buffers<T: Pod>(device: &RenderDevice, data: &[T]) -> (u64, Buffer, Bu
 
 fn run_compute(
     mut cr: ResMut<ComputeResources>, 
-    mut q_boid: Query<(&mut Transform, &BoidEntity), With<BoidEntity>>
+    mut q_boid: Query<(&mut Transform, &BoidEntity), With<BoidEntity>>,
+    mut boid_instances: Query<(Entity, &mut InstanceMaterialData)>,
 ) {
     //println!("Running compute!");
 
@@ -307,6 +308,19 @@ fn run_compute(
             transform.translation = world_pos;
 
         });
+
+        for (_, mut instance_data) in &mut boid_instances {
+            for (index, instance) in instance_data.0.iter_mut().enumerate() {
+                if index < NUM_BOIDS as usize {
+                    let world_pos = Vec3::new(
+                        20. * (boids[index].pos.x),
+                        20. * (boids[index].pos.y) + 20 as f32,
+                        20. * (boids[index].pos.z)
+                    );
+                    instance.position = world_pos;
+                }
+            }
+        }
     }
     #[cfg(target_arch = "wasm32")]
     {

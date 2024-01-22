@@ -24,7 +24,8 @@ use shared::*;
 mod compute_plugin;
 use compute_plugin::ComputePlugin;
 
-
+mod instancing_plugin;
+use instancing_plugin::Instancing_Plugin;
 
 
 //Main, adding some useful plugins that allow for some easy logging.
@@ -35,6 +36,7 @@ fn main() {
         .add_plugins(FrameTimeDiagnosticsPlugin::default())
         .add_plugins(PanOrbitCameraPlugin)
         .add_plugins(ComputePlugin)
+        .add_plugins(Instancing_Plugin)
         .insert_resource(AssetMetaCheck::Never)
         .insert_resource(ClearColor(Color::WHITE))
         .add_systems(Startup, setup)
@@ -120,7 +122,7 @@ fn setup(
 
     commands.insert_resource(Animations(vec![asset_server.load("crow1.glb#Animation0")]));
 
-    let glb_scene: Handle<Mesh> = asset_server.load("crow.glb#Scene0");
+    // let glb_scene: Handle<Mesh> = asset_server.load("crow.glb#Scene0");
     
 
 
@@ -136,7 +138,7 @@ fn setup(
         });
     }
 
-    commands.spawn_batch(crows);
+    // commands.spawn_batch(crows);
 
 }
 
