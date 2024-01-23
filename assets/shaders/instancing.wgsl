@@ -6,7 +6,8 @@ struct Vertex {
     @location(2) uv: vec2<f32>,
 
     @location(3) i_pos_scale: vec4<f32>,
-    @location(4) i_color: vec4<f32>,
+    @location(4) i_vel: vec4<f32>,
+    @location(5) i_color: vec4<f32>,
 };
 
 struct VertexOutput {
@@ -16,8 +17,30 @@ struct VertexOutput {
 
 @vertex
 fn vertex(vertex: Vertex) -> VertexOutput {
-    let position = vertex.position * vertex.i_pos_scale.w + vertex.i_pos_scale.xyz;
+    //Flip the velocity, so the crows front is at the front.
+    let i_vel = vertex.i_vel * -1.0f;
+    let yaw = atan2(i_vel.x, i_vel.z);
+    let pitch = atan2(i_vel.y, length(i_vel.xz));
+
+    // Create rotation matrix
+    let rotation = mat3x3<f32>(
+        vec3<f32>(cos(yaw), 0.0, -sin(yaw)),
+        vec3<f32>(0.0, 1.0, 0.0),
+        vec3<f32>(sin(yaw), 0.0, cos(yaw))
+    ) * mat3x3<f32>(
+        vec3<f32>(1.0, 0.0, 0.0),
+        vec3<f32>(0.0, cos(pitch), -sin(pitch)),
+        vec3<f32>(0.0, sin(pitch), cos(pitch))
+    );
+
+    // Rotate the position
+    let pos = rotation * vertex.position;
+    
+    let position = pos * vertex.i_pos_scale.w + vertex.i_pos_scale.xyz;
     var out: VertexOutput;
+
+
+
     // NOTE: Passing 0 as the instance_index to get_model_matrix() is a hack
     // for this example as the instance_index builtin would map to the wrong
     // index in the Mesh array. This index could be passed in via another

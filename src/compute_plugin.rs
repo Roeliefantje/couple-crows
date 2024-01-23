@@ -317,6 +317,8 @@ fn run_compute(
                         20. * (boids[index].pos.y) + 20 as f32,
                         20. * (boids[index].pos.z)
                     );
+
+                    instance.vel = boids[index].vel;
                     instance.position = world_pos;
                 }
             }

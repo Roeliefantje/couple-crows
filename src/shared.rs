@@ -10,7 +10,7 @@ use bevy::{
 };
 use bytemuck::Zeroable;
 
-pub const NUM_BOIDS: u32 = 100000;
+pub const NUM_BOIDS: u32 = 128000;
 pub const BOX_SIZE: f32 = 40.;
 pub const GRID_SIZE: f32 = 20.0;
 pub const CELL_SIZE: f32 = 0.1;
@@ -151,6 +151,7 @@ impl Grid {
 pub struct InstanceData {
     pub position: Vec3,
     pub scale: f32,
+    pub vel: Vec4,
     pub color: [f32; 4],
 }
 

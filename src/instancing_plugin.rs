@@ -47,6 +47,7 @@ fn setup(mut commands: Commands, mut meshes: ResMut<Assets<Mesh>>, asset_server:
             (0..NUM_BOIDS).map(|_| InstanceData {
                 position: Vec3::new(0.0, 0.0, 0.0),
                 scale: 0.01,
+                vel: Vec4::new(0.0, 0.0, 0.0, 0.0),
                 color: Color::hsla(0.0, 0.0, 0.0, 1.0).as_rgba_f32()
             }).collect()
         ),
@@ -198,6 +199,11 @@ impl SpecializedMeshPipeline for CustomPipeline {
                     offset: VertexFormat::Float32x4.size(),
                     shader_location: 4,
                 },
+                VertexAttribute {
+                    format: VertexFormat::Float32x4,
+                    offset: VertexFormat::Float32x4.size() * 2,
+                    shader_location: 5,
+                }
             ],
         });
         descriptor.fragment.as_mut().unwrap().shader = self.shader.clone();
