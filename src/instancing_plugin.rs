@@ -23,7 +23,7 @@ use bevy::{
     },
 };
 use bytemuck::{Pod, Zeroable};
-
+use bevy_obj::ObjPlugin;
 use crate::shared::*;
 
 
@@ -32,19 +32,21 @@ pub struct Instancing_Plugin;
 impl Plugin for Instancing_Plugin {
     fn build(&self, app: &mut App) {
         app.add_plugins(CustomMaterialPlugin)
+           .add_plugins(ObjPlugin)
            .add_systems(Startup, setup);
     }
 }
 
-fn setup(mut commands: Commands, mut meshes: ResMut<Assets<Mesh>>) {
+fn setup(mut commands: Commands, mut meshes: ResMut<Assets<Mesh>>, asset_server: Res<AssetServer>) {
     // println!("We get here");
+    let mesh_handle: Handle<Mesh> = asset_server.load("crow1.obj");
     commands.spawn((
-        meshes.add(Mesh::from(shape::Cube {size: 0.2})),
+        mesh_handle,
         SpatialBundle::INHERITED_IDENTITY,
         InstanceMaterialData(
             (0..NUM_BOIDS).map(|_| InstanceData {
                 position: Vec3::new(0.0, 0.0, 0.0),
-                scale: 0.2,
+                scale: 0.01,
                 color: Color::hsla(0.0, 0.0, 0.0, 1.0).as_rgba_f32()
             }).collect()
         ),
