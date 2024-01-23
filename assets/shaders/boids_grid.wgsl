@@ -45,9 +45,9 @@ fn wrap_around(coord: i32, max_value: i32) -> i32 {
 @compute @workgroup_size(32)
 fn main(@builtin(global_invocation_id) invocation_id: vec3<u32>) {
 
-    let grid_size_x: i32 = 10; 
-    let grid_size_y: i32 = 10; 
-    let grid_size_z: i32 = 10; 
+    // let grid_size_x: i32 = 10; 
+    // let grid_size_y: i32 = 10; 
+    // let grid_size_z: i32 = 10; 
 
     //let total_grids = arrayLength(&amount_of_crows_vec);
     //let total_indices = arrayLength(&crow_idxs);
@@ -62,9 +62,9 @@ fn main(@builtin(global_invocation_id) invocation_id: vec3<u32>) {
     var vPos = boids_src[index].pos; // Boid Position
     var vVel = boids_src[index].vel; // Boid Velocity
 
-    var grid_x = u32((vPos.x / params.cell_size) + (params.grid_size * params.cell_size * 0.5)) % u32(params.grid_size);
-    var grid_y = u32((vPos.y / params.cell_size) + (params.grid_size * params.cell_size * 0.5)) % u32(params.grid_size);
-    var grid_z = u32((vPos.z / params.cell_size) + (params.grid_size * params.cell_size * 0.5)) % u32(params.grid_size);
+    var grid_x = u32((vPos.x / params.cell_size) + (params.grid_size * 0.5)); //% u32(params.grid_size);
+    var grid_y = u32((vPos.y / params.cell_size) + (params.grid_size * 0.5)); //% u32(params.grid_size);
+    var grid_z = u32((vPos.z / params.cell_size) + (params.grid_size * 0.5)); //% u32(params.grid_size);
 
     var grid_idx: u32 = grid_x * u32(params.grid_size) * u32(params.grid_size) + grid_y * u32(params.grid_size) + grid_z;
     var start_idx: u32 = 0u;
@@ -73,27 +73,27 @@ fn main(@builtin(global_invocation_id) invocation_id: vec3<u32>) {
         start_idx = amount_of_crows_vec[grid_idx - 1u];
     }
 
-    var delta_x: i32 = -1;
-    while (delta_x <= 1) {
-        var delta_y: i32 = -1;
-        while (delta_y <= 1) {
-            var delta_z: i32 = -1;
-            while (delta_z <= 1) {
-                if (delta_x != 0 || delta_y != 0 || delta_z != 0) {
-                    let neighbor_grid_x = wrap_around(i32(grid_x) + delta_x, grid_size_x);
-                    let neighbor_grid_y = wrap_around(i32(grid_y) + delta_y, grid_size_y);
-                    let neighbor_grid_z = wrap_around(i32(grid_z) + delta_z, grid_size_z);
+    // var delta_x: i32 = -1;
+    // while (delta_x <= 1) {
+    //     var delta_y: i32 = -1;
+    //     while (delta_y <= 1) {
+    //         var delta_z: i32 = -1;
+    //         while (delta_z <= 1) {
+    //             if (delta_x != 0 || delta_y != 0 || delta_z != 0) {
+    //                 let neighbor_grid_x = wrap_around(i32(grid_x) + delta_x, grid_size_x);
+    //                 let neighbor_grid_y = wrap_around(i32(grid_y) + delta_y, grid_size_y);
+    //                 let neighbor_grid_z = wrap_around(i32(grid_z) + delta_z, grid_size_z);
 
-                    let neighbor_grid_index = neighbor_grid_x +
-                                              neighbor_grid_y * grid_size_x +
-                                              neighbor_grid_z * grid_size_x * grid_size_y;
-                }
-                delta_z = delta_z + 1;
-            }
-            delta_y = delta_y + 1;
-        }
-        delta_x = delta_x + 1;
-    }
+    //                 let neighbor_grid_index = neighbor_grid_x +
+    //                                           neighbor_grid_y * grid_size_x +
+    //                                           neighbor_grid_z * grid_size_x * grid_size_y;
+    //             }
+    //             delta_z = delta_z + 1;
+    //         }
+    //         delta_y = delta_y + 1;
+    //     }
+    //     delta_x = delta_x + 1;
+    // }
 
 
 
@@ -106,37 +106,73 @@ fn main(@builtin(global_invocation_id) invocation_id: vec3<u32>) {
     var pos: vec4<f32>;
     var vel: vec4<f32>;
 
-    var i: u32 = start_idx;
+    for (var cgx = max(grid_x - 1u, 0u); cgx < min(u32(params.grid_size), grid_x + 2u); cgx++){ 
+        for (var cgy = max(grid_y - 1u, 0u); cgy < min(u32(params.grid_size), grid_y + 2u); cgy++) {
+            for (var cgz = max(grid_z - 1u, 0u); cgz < min(u32(params.grid_size), grid_z + 2u); cgz++) {
+                var grid_idx: u32 = cgx * u32(params.grid_size) * u32(params.grid_size) + cgy * u32(params.grid_size) + cgz;
+                var start_idx: u32 = 0u;
+                var end_idx: u32 = amount_of_crows_vec[grid_idx];
+                if (grid_idx > 0u) {
+                    start_idx = amount_of_crows_vec[grid_idx - 1u];
+                }
 
-    loop {
-        if (i >= end_idx) {
-            break;
-        }
-        if (i == index) {
-            continue;
-        }
+                for(var i = start_idx; i < end_idx; i++) {
+                    if (crow_idxs[i] == index) {
+                        continue;
+                    }
 
-        pos = boids_src[crow_idxs[i]].pos;
-        vel = boids_src[crow_idxs[i]].vel;
+                    pos = boids_src[crow_idxs[i]].pos;
+                    vel = boids_src[crow_idxs[i]].vel;
 
-        let dst = distance(pos, vPos);
+                    let dst = distance(pos, vPos);
 
-        if (0.0 < dst && dst < params.seperationDistance) {
-            total_seperation += normalize(pos - vPos) * f32(-1) / dst;
-        }
-        if (dst < params.alignmentDistance) {
-            total_alignment += vel;
-            alignmentCount += 1;
-        }
-        if (dst < params.cohesionDistance) {
-            total_cohesion += pos;
-            cohesionCount += 1;
-        }
-
-        continuing {
-            i = i + 1u;
+                    if (0.0 < dst && dst < params.seperationDistance) {
+                        total_seperation += normalize(pos - vPos) * f32(-1) / dst;
+                    }
+                    if (dst < params.alignmentDistance) {
+                        total_alignment += vel;
+                        alignmentCount += 1;
+                    }
+                    if (dst < params.cohesionDistance) {
+                        total_cohesion += pos;
+                        cohesionCount += 1;
+                    }
+                }
+            }
         }
     }
+
+    // var i: u32 = start_idx;
+
+    // loop {
+    //     if (i >= end_idx) {
+    //         break;
+    //     }
+    //     if (i == index) {
+    //         continue;
+    //     }
+
+    //     pos = boids_src[crow_idxs[i]].pos;
+    //     vel = boids_src[crow_idxs[i]].vel;
+
+    //     let dst = distance(pos, vPos);
+
+    //     if (0.0 < dst && dst < params.seperationDistance) {
+    //         total_seperation += normalize(pos - vPos) * f32(-1) / dst;
+    //     }
+    //     if (dst < params.alignmentDistance) {
+    //         total_alignment += vel;
+    //         alignmentCount += 1;
+    //     }
+    //     if (dst < params.cohesionDistance) {
+    //         total_cohesion += pos;
+    //         cohesionCount += 1;
+    //     }
+
+    //     continuing {
+    //         i = i + 1u;
+    //     }
+    // }
 
     if (alignmentCount > 0) {
         total_alignment /= f32(alignmentCount);

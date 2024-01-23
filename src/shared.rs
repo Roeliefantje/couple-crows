@@ -112,7 +112,7 @@ impl Grid {
 
     pub fn cooridnate_to_grid_coordinate (&self, coordinate: f32) -> usize {
         //negative value would be -1 + 2 if size is say 4, resulting in 1, positive values will be 1 + 2 = 3, so i
-        let val = ((coordinate / self.cell_size) + (self.size as f32 * self.cell_size * 0.5)) as usize % self.size;
+        let val = ((coordinate / self.cell_size) + (self.size as f32 * 0.5)) as usize % self.size;
         val
         
     }

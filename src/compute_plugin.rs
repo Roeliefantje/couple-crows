@@ -30,9 +30,9 @@ impl Plugin for ComputePlugin {
         app.add_systems(Update, run_compute);
 
         let params = [
-            0.7, //speed
+            0.4, //speed
             0.03, //seperation d
-            0.1, // alignment d
+            0.05, // alignment d
             0.1, // cohesion d
             0.4, // seperation s
             1., // alignment s
