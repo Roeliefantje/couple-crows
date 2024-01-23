@@ -32,8 +32,22 @@ var<storage> amount_of_crows_vec: array<u32>;
 @group(0) @binding(5)
 var<storage> crow_idxs: array<u32>;
 
+fn wrap_around(coord: i32, max_value: i32) -> i32 {
+    if (coord < 0) {
+        return max_value - 1;
+    } else if (coord >= max_value) {
+        return 0;
+    } else {
+        return coord;
+    }
+}
+
 @compute @workgroup_size(32)
 fn main(@builtin(global_invocation_id) invocation_id: vec3<u32>) {
+
+    let grid_size_x: i32 = 10; 
+    let grid_size_y: i32 = 10; 
+    let grid_size_z: i32 = 10; 
 
     //let total_grids = arrayLength(&amount_of_crows_vec);
     //let total_indices = arrayLength(&crow_idxs);
@@ -57,6 +71,28 @@ fn main(@builtin(global_invocation_id) invocation_id: vec3<u32>) {
     var end_idx: u32 = amount_of_crows_vec[grid_idx]; 
     if (grid_idx > 0u) {
         start_idx = amount_of_crows_vec[grid_idx - 1u];
+    }
+
+    var delta_x: i32 = -1;
+    while (delta_x <= 1) {
+        var delta_y: i32 = -1;
+        while (delta_y <= 1) {
+            var delta_z: i32 = -1;
+            while (delta_z <= 1) {
+                if (delta_x != 0 || delta_y != 0 || delta_z != 0) {
+                    let neighbor_grid_x = wrap_around(i32(grid_x) + delta_x, grid_size_x);
+                    let neighbor_grid_y = wrap_around(i32(grid_y) + delta_y, grid_size_y);
+                    let neighbor_grid_z = wrap_around(i32(grid_z) + delta_z, grid_size_z);
+
+                    let neighbor_grid_index = neighbor_grid_x +
+                                              neighbor_grid_y * grid_size_x +
+                                              neighbor_grid_z * grid_size_x * grid_size_y;
+                }
+                delta_z = delta_z + 1;
+            }
+            delta_y = delta_y + 1;
+        }
+        delta_x = delta_x + 1;
     }
 
 
