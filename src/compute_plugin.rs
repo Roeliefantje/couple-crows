@@ -31,10 +31,10 @@ impl Plugin for ComputePlugin {
 
         let params = [
             0.4, //speed
-            0.03, //seperation d
+            0.02, //seperation d
             0.05, // alignment d
             0.1, // cohesion d
-            0.4, // seperation s
+            1.0, // seperation s
             1., // alignment s
             1., // cohesion s
             GRID_SIZE,

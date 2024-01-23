@@ -184,6 +184,9 @@ fn main(@builtin(global_invocation_id) invocation_id: vec3<u32>) {
         //Turn that into a velocity vector from the Boid we are calculating.
         total_cohesion -= vPos;
     }
+    if length(total_seperation) > 0.0 {
+        total_seperation = normalize(total_seperation);
+    }
 
     vVel = vVel + (total_seperation * params.seperationScale) +
         (total_alignment * params.alignmentScale) +
