@@ -2,15 +2,15 @@ use std::{borrow::Cow, str::FromStr};
 // use wgpu::util::DeviceExt;
 // use wgpu::util::DeviceExt::bin
 use bevy::{
-    prelude::*,
-    render::{
+    core::Pod, ecs::{storage, world, system::SystemState}, prelude::*, render::{
         extract_resource::{ExtractResource, ExtractResourcePlugin},
         renderer::RenderDevice,
         render_resource::*,
-    },
-    ecs::{storage, world},
-    core::Pod
+    }, tasks::{block_on, ComputeTaskPool, IoTaskPool}
 };
+// use bevy::ecs::{system::SystemState};
+use futures_lite::future;
+use std::sync::{Arc, Mutex};
 // use env_logger::fmt::buffer;
 use wgpu::Queue;
 use bytemuck::Zeroable;
@@ -30,7 +30,7 @@ impl Plugin for ComputePlugin {
         app.add_systems(Update, run_compute);
 
         let params = [
-            0.4, //speed
+            0.5, //speed
             0.02, //seperation d
             0.05, // alignment d
             0.1, // cohesion d
@@ -86,9 +86,9 @@ impl Plugin for ComputePlugin {
                         Some(val) => total_amount += val,
                         None => {},
                     }
-                    if amount_of_crows > 0 as usize {
-                        println!("total_amount: {}, amount_of_crows: {}", total_amount, amount_of_crows);
-                    }
+                    // if amount_of_crows > 0 as usize {
+                    //     println!("total_amount: {}, amount_of_crows: {}", total_amount, amount_of_crows);
+                    // }
                     
 
                     
@@ -100,20 +100,31 @@ impl Plugin for ComputePlugin {
 
         app.insert_resource(grid);
 
+        let future_compute_recourses_wrapper = Arc::new(Mutex::new(None));
+        app.insert_resource(FutureComputeResources(future_compute_recourses_wrapper.clone()));
+
         #[cfg(not(target_arch = "wasm32"))]
         {
             // env_logger::init();
-            pollster::block_on(prepare_compute(app, &params, &initial_boids_data, &amount_of_crows_vec, &crow_idxs));
+            pollster::block_on(prepare_compute(future_compute_recourses_wrapper.clone(), params, initial_boids_data, amount_of_crows_vec, crow_idxs));
         }
         #[cfg(target_arch = "wasm32")]
         {
-            std::panic::set_hook(Box::new(console_error_panic_hook::hook));
-            console_log::init().expect("could not initialize logger");
-            wasm_bindgen_futures::spawn_local(async move {prepare_compute(app, &vec![1233, 22343, 3234234, 42234, 52423]).await});
-            
+            IoTaskPool::get().spawn_local(prepare_compute(future_compute_recourses_wrapper.clone(), initial_boids_data)).detach();
+            // wasm_bindgen_futures::spawn_local(async move {prepare_compute(app, &vec![1233, 22343, 3234234, 42234, 52423]).await});
         }
     }
+
+    // fn finish(&self, app: &mut App){
+    //     if let Some(future_compute_resources) = app.world.remove_resource::<FutureComputeResources>() {
+    //         let cr: ComputeResources = future_compute_resources.0.lock().unwrap().take().unwrap();
+    //         app.insert_resource(cr);
+    //     }
+    // }
 }
+
+#[derive(Resource)]
+struct FutureComputeResources(Arc<Mutex<Option<ComputeResources>>>);
 
 #[derive(Resource)]
 struct ComputeResources {
@@ -134,13 +145,18 @@ struct ComputeResources {
 
 
 async fn prepare_compute(
-    app: &mut App,
-    params: &[f32],
-    boids: &[Boid],
-    amount_of_crows: &[u32],
-    crow_idxs: &[u32]) {
+    // app: &mut App,
+    future_resources_wrapper: Arc<Mutex<Option<ComputeResources>>>,
+    params: [f32; 9],
+    boids_vec: Vec<Boid>,
+    amount_of_crows_vec: Vec<u32>,
+    crow_idxs_vec: Vec<u32>) {
+    let boids: &[Boid] = &boids_vec;
+    let amount_of_crows: &[u32] = &amount_of_crows_vec;
+    let crow_idxs: &[u32] = &crow_idxs_vec;
     // Instantiates instance of WebGPU
     let instance = wgpu::Instance::default();
+    info!("Info actually works on this one!");
 
     // `request_adapter` instantiates the general connection to the GPU
     let adapter = instance
@@ -168,7 +184,7 @@ async fn prepare_compute(
     });
 
     //Create Uniform Buffer for Params
-    let param_buffer = create_uniform_buffer(&device, params);
+    let param_buffer = create_uniform_buffer(&device, &params);
 
     //Create Uniform Buffer for DeltaTiem
     let dt_buffer = create_uniform_buffer(&device, &vec![0.004f32]);
@@ -248,7 +264,11 @@ async fn prepare_compute(
         current_frame: 0
     };
 
-    app.insert_resource(compute_resources);
+    let mut future_compute_resources_inner = future_resources_wrapper.lock().unwrap();
+
+    *future_compute_resources_inner = Some(compute_resources);
+    #[cfg(target_arch = "wasm32")]
+    info!("We get here");
 
 }
 
@@ -282,60 +302,73 @@ fn create_buffers<T: Pod>(device: &RenderDevice, data: &[T]) -> (u64, Buffer, Bu
 }
 
 
-fn run_compute(
-    mut cr: ResMut<ComputeResources>, 
-    mut q_boid: Query<(&mut Transform, &BoidEntity), With<BoidEntity>>,
-    mut boid_instances: Query<(Entity, &mut InstanceMaterialData)>,
+fn run_compute( 
+    // mut boid_instances: Query<(Entity, &mut InstanceMaterialData)>,
+    mut world: &mut World,
 ) {
+    // mut boid_instances = world.query<Query<(Entity, &mut InstanceMaterialData)>>();
     //println!("Running compute!");
+    
 
-    cr.current_frame = (cr.current_frame + 1) % 2;
 
-    #[cfg(not(target_arch = "wasm32"))]
-    {
-        // env_logger::init();
-        let boids = pollster::block_on(run_compute_inner(&cr));
-        q_boid
-        .iter_mut()
-        .for_each(|(mut transform, boid_entity)| {
-            let world_pos = Vec3::new(
-                20. * (boids[boid_entity.0].pos.x),
-                20. * (boids[boid_entity.0].pos.y),
-                20. * (boids[boid_entity.0].pos.z)
-            );
+    if let Some(future_compute_resources) = world.remove_resource::<FutureComputeResources>() {
+        let maybe_cr: Option<ComputeResources> = future_compute_resources.0.lock().unwrap().take();
+        match maybe_cr {
+            Some(mut cr) => {
+                cr.current_frame = (cr.current_frame + 1) % 2;
+                let future_compute_recourses_wrapper = Arc::new(Mutex::new(None));
+                world.insert_resource(FutureComputeResources(future_compute_recourses_wrapper.clone()));
+                // app.insert_resource(cr);
             
-            transform.look_at(world_pos, Vec3::Y);
-            transform.translation = world_pos;
-
-        });
-
-        for (_, mut instance_data) in &mut boid_instances {
-            for (index, instance) in instance_data.0.iter_mut().enumerate() {
-                if index < NUM_BOIDS as usize {
-                    let world_pos = Vec3::new(
-                        20. * (boids[index].pos.x),
-                        20. * (boids[index].pos.y) + 20 as f32,
-                        20. * (boids[index].pos.z)
-                    );
-
-                    instance.vel = boids[index].vel;
-                    instance.position = world_pos;
+                // println!("Running compute!");
+                // let dispatch_size = 5 as u32;
+                let boids:Vec<Boid>;
+                #[cfg(not(target_arch = "wasm32"))]
+                {
+                    // env_logger::init();
+                    boids = pollster::block_on(run_compute_inner(future_compute_recourses_wrapper.clone(), cr));
                 }
+                #[cfg(target_arch = "wasm32")]
+                {
+                    // std::panic::set_hook(Box::new(console_error_panic_hook::hook));
+                    // console_log::init().expect("could not initialize logger");
+                    let boids_task = ComputeTaskPool::get().spawn_local(run_compute_inner(future_compute_recourses_wrapper.clone(), cr)).detach();
+
+                    if let Some(val) = block_on(future::poll_once(boids_task)) {
+                        boids = val;
+                    }
+                    //wasm_bindgen_futures::spawn_local(run_compute_inner(future_compute_recourses_wrapper, cr, dispatch_size));
+                }
+
+                let mut system_state: SystemState<Query<(Entity, &mut InstanceMaterialData)>> = SystemState::new(&mut world);
+                let mut boid_instances = system_state.get_mut(&mut world);
+
+                for (_, mut instance_data) in &mut boid_instances {
+                    for (index, instance) in instance_data.0.iter_mut().enumerate() {
+                        if index < NUM_BOIDS as usize {
+                            let world_pos = Vec3::new(
+                                20. * (boids[index].pos.x),
+                                20. * (boids[index].pos.y) + 20 as f32,
+                                20. * (boids[index].pos.z)
+                            );
+
+                            instance.vel = boids[index].vel;
+                            instance.position = world_pos;
+                        }
+                    }
+                }
+
+            },
+            None => {
+                info!("Compute Resources not ready yet!");
+                return
             }
         }
     }
-    #[cfg(target_arch = "wasm32")]
-    {
-        std::panic::set_hook(Box::new(console_error_panic_hook::hook));
-        console_log::init().expect("could not initialize logger");
-        let boids = wasm_bindgen_futures::spawn_local(run_compute_inner(&cr));
-    }
-
-    
 }
 
-async fn run_compute_inner(cr: &ComputeResources) -> Vec<Boid>{
-    let boids = run_compute_shader(cr).await;
+async fn run_compute_inner(future_resources_wrapper: Arc<Mutex<Option<ComputeResources>>>, cr: ComputeResources,) -> Vec<Boid>{
+    let boids = run_compute_shader(&cr).await;
 
     //Update the Rendered items with the positions and rotations and create a new grid
     let mut grid = Grid::new(GRID_SIZE as usize, CELL_SIZE);
@@ -375,6 +408,10 @@ async fn run_compute_inner(cr: &ComputeResources) -> Vec<Boid>{
 
     cr.queue.write_buffer(&cr.storage_buffer_aoc, 0, bytemuck::cast_slice(&amount_of_crows_vec));
     cr.queue.write_buffer(&cr.storage_buffer_cidxs, 0, bytemuck::cast_slice(&crow_idxs));
+
+    let mut future_compute_resources_inner = future_resources_wrapper.lock().unwrap();
+
+    *future_compute_resources_inner = Some(cr);
 
     return boids
 

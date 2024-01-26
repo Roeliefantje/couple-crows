@@ -52,4 +52,5 @@ console_log = "1.0.0"
 console_error_panic_hook = "0.1.7"
 log = "0.4.20"
 bevy_obj = "0.12.0"
+futures-lite = "0.1.2"
 # wgpu = { version = "0.17.1", features = ["naga"] }

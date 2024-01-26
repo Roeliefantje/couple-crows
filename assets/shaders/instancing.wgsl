@@ -13,6 +13,7 @@ struct Vertex {
 struct VertexOutput {
     @builtin(position) clip_position: vec4<f32>,
     @location(0) color: vec4<f32>,
+    @location(1) vel: vec4<f32>,
 };
 
 @vertex
@@ -50,10 +51,15 @@ fn vertex(vertex: Vertex) -> VertexOutput {
         vec4<f32>(position, 1.0)
     );
     out.color = vertex.i_color;
+    out.vel = i_vel;
     return out;
 }
 
 @fragment
 fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
+
+    let vel_n = normalize(in.vel);
+
+    //return vec4<f32>(abs(vel_n.x), abs(vel_n.y), abs(vel_n.z), 0.3);
     return in.color;
 }

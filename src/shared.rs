@@ -12,6 +12,7 @@ use bytemuck::Zeroable;
 
 pub const NUM_BOIDS: u32 = 128000;
 pub const BOX_SIZE: f32 = 40.;
+//Grid_size * cell_size should be 2.0
 pub const GRID_SIZE: f32 = 20.0;
 pub const CELL_SIZE: f32 = 0.1;
 
