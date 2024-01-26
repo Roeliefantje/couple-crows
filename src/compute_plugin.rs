@@ -6,7 +6,7 @@ use bevy::{
         extract_resource::{ExtractResource, ExtractResourcePlugin},
         renderer::RenderDevice,
         render_resource::*,
-    }, tasks::{block_on, ComputeTaskPool, IoTaskPool}
+    }, tasks::{Task, block_on, ComputeTaskPool, IoTaskPool}
 };
 // use bevy::ecs::{system::SystemState};
 use futures_lite::future;
@@ -110,7 +110,7 @@ impl Plugin for ComputePlugin {
         }
         #[cfg(target_arch = "wasm32")]
         {
-            IoTaskPool::get().spawn_local(prepare_compute(future_compute_recourses_wrapper.clone(), initial_boids_data)).detach();
+            IoTaskPool::get().spawn_local(prepare_compute(future_compute_recourses_wrapper.clone(), params, initial_boids_data, amount_of_crows_vec, crow_idxs)).detach();
             // wasm_bindgen_futures::spawn_local(async move {prepare_compute(app, &vec![1233, 22343, 3234234, 42234, 52423]).await});
         }
     }
@@ -322,7 +322,7 @@ fn run_compute(
             
                 // println!("Running compute!");
                 // let dispatch_size = 5 as u32;
-                let boids:Vec<Boid>;
+                let mut boids:Vec<Boid>;
                 #[cfg(not(target_arch = "wasm32"))]
                 {
                     // env_logger::init();
@@ -332,9 +332,9 @@ fn run_compute(
                 {
                     // std::panic::set_hook(Box::new(console_error_panic_hook::hook));
                     // console_log::init().expect("could not initialize logger");
-                    let boids_task = ComputeTaskPool::get().spawn_local(run_compute_inner(future_compute_recourses_wrapper.clone(), cr)).detach();
-
-                    if let Some(val) = block_on(future::poll_once(boids_task)) {
+                    let boids_task = ComputeTaskPool::get().spawn_local(run_compute_inner(future_compute_recourses_wrapper.clone(), cr));
+                    //https://github.com/bevyengine/bevy/discussions/3351
+                    if let Some(val) = block_on(future::poll_once(&mut boids_task)) {
                         boids = val;
                     }
                     //wasm_bindgen_futures::spawn_local(run_compute_inner(future_compute_recourses_wrapper, cr, dispatch_size));
