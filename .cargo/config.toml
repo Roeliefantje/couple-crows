@@ -3,4 +3,4 @@ runner = "wasm-server-runner"
 
 
 [env]
-WGPU_BACKEND="vulkan"
+WGPU_BACKEND="dx12"
