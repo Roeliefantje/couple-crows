@@ -31,7 +31,14 @@ use instancing_plugin::Instancing_Plugin;
 //Main, adding some useful plugins that allow for some easy logging.
 fn main() {
     App::new()
-        .add_plugins(DefaultPlugins)
+        .add_plugins(DefaultPlugins.set(WindowPlugin {
+            primary_window: Some(Window {
+                present_mode: bevy::window::PresentMode::AutoNoVsync, // Reduces input lag.
+                fit_canvas_to_parent: true,
+                ..default()
+            }),
+            ..default()
+        }))
         .add_plugins(LogDiagnosticsPlugin::default())
         .add_plugins(FrameTimeDiagnosticsPlugin::default())
         .add_plugins(PanOrbitCameraPlugin)
@@ -41,6 +48,10 @@ fn main() {
         .insert_resource(ClearColor(Color::WHITE))
         .add_systems(Startup, setup)
         .add_systems(Update, system)
+    
+    // #[cfg(target_arch = "wasm32")]
+    // app.add_plugin(FullViewportPlugin);
+
         .run()
 }
 

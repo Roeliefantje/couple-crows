@@ -1,6 +1,9 @@
 [target.wasm32-unknown-unknown]
 runner = "wasm-server-runner"
-
+rustflags = [
+    "--cfg=web_sys_unstable_apis"
+]
 
 [env]
 WGPU_BACKEND="dx12"
+# RUSTFLAGS="--cfg=web_sys_unstable_apis"

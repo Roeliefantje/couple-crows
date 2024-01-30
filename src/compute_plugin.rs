@@ -28,6 +28,8 @@ pub struct ComputePlugin;
 impl Plugin for ComputePlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(Update, run_compute);
+        app.add_systems(PostUpdate, update_compute_resources);
+        app.add_systems(PostUpdate, update_boids);
 
         let params = [
             0.5, //speed
@@ -115,12 +117,12 @@ impl Plugin for ComputePlugin {
         }
     }
 
-    // fn finish(&self, app: &mut App){
-    //     if let Some(future_compute_resources) = app.world.remove_resource::<FutureComputeResources>() {
-    //         let cr: ComputeResources = future_compute_resources.0.lock().unwrap().take().unwrap();
-    //         app.insert_resource(cr);
-    //     }
-    // }
+    fn finish(&self, app: &mut App){
+        if let Some(future_compute_resources) = app.world.remove_resource::<FutureComputeResources>() {
+            let cr: ComputeResources = future_compute_resources.0.lock().unwrap().take().unwrap();
+            app.insert_resource(cr);
+        }
+    }
 }
 
 #[derive(Resource)]
@@ -270,8 +272,6 @@ async fn prepare_compute(
     let mut future_compute_resources_inner = future_resources_wrapper.lock().unwrap();
 
     *future_compute_resources_inner = Some(compute_resources);
-    #[cfg(target_arch = "wasm32")]
-    info!("We get here");
 
 }
 
@@ -304,98 +304,85 @@ fn create_buffers<T: Pod>(device: &RenderDevice, data: &[T]) -> (u64, Buffer, Bu
     (size, staging_buffer, storage_buffer)
 }
 
+fn update_compute_resources(
+    world: &mut World
+) {
+    if let Some(future_compute) = world.remove_resource::<FutureComputeResources>() {
+        let maybe_cr = future_compute.0.lock().unwrap().take();
+        match maybe_cr {
+            Some(cr) => {
+                world.insert_resource(cr);
+            },
+            None => {
+                world.insert_resource(future_compute);
+            }
+        }
+    }
+}
+
+fn update_boids(
+    mut world: &mut World
+) {
+    if let Some(future_boids_wrapper_res) = world.remove_resource::<FutureBoid>() {
+        let maybe_boids: Option<Vec<Boid>> = future_boids_wrapper_res.0.lock().unwrap().take();
+        match maybe_boids {
+            Some(boids) => {
+                // info!("Got Results!");
+                let mut system_state: SystemState<Query<(Entity, &mut InstanceMaterialData)>> = SystemState::new(&mut world);
+                let mut boid_instances = system_state.get_mut(&mut world);
+    
+                for (_, mut instance_data) in &mut boid_instances {
+                    for (index, instance) in instance_data.0.iter_mut().enumerate() {
+                        if index < NUM_BOIDS as usize {
+                            let world_pos = Vec3::new(
+                                20. * (boids[index].pos.x),
+                                20. * (boids[index].pos.y) + 20 as f32,
+                                20. * (boids[index].pos.z)
+                            );
+    
+                            instance.vel = boids[index].vel;
+                            instance.position = world_pos;
+                        }
+                    }
+                }
+            },
+            None => {
+                world.insert_resource(future_boids_wrapper_res);
+                // info!("No Boid Vec after compute call!");
+            }
+        }
+
+    } else {
+        //Do nothing
+        return
+    }
+}
+
 
 fn run_compute( 
     // mut boid_instances: Query<(Entity, &mut InstanceMaterialData)>,
-    mut world: &mut World,
+    world: &mut World,
 ) {
     // mut boid_instances = world.query<Query<(Entity, &mut InstanceMaterialData)>>();
     //println!("Running compute!");
-    
+    if let Some(mut cr) = world.remove_resource::<ComputeResources>() {
+        cr.current_frame = (cr.current_frame + 1) % 2;
+        let future_boids_wrapper: Arc<Mutex<Option<Vec<Boid>>>> = Arc::new(Mutex::new(None));
+        let future_compute_recourses_wrapper = Arc::new(Mutex::new(None));
+        world.insert_resource(FutureBoid(future_boids_wrapper.clone()));
+        world.insert_resource(FutureComputeResources(future_compute_recourses_wrapper.clone()));
 
+        ComputeTaskPool::get().spawn_local(run_compute_inner(future_compute_recourses_wrapper.clone(), cr, future_boids_wrapper.clone())).detach();
+        //If you are running natively and want to limit the framerate to the boids algorithm, use pollster instead:
+        //pollster::block_on(run_compute_inner(future_compute_recourses_wrapper.clone(), cr, future_boids_wrapper.clone()));
 
-    if let Some(future_compute_resources) = world.remove_resource::<FutureComputeResources>() {
-        let maybe_cr: Option<ComputeResources> = future_compute_resources.0.lock().unwrap().take();
-        match maybe_cr {
-            Some(mut cr) => {
-                // info!("We get here once at least");
-                cr.current_frame = (cr.current_frame + 1) % 2;
-                let future_compute_recourses_wrapper = Arc::new(Mutex::new(None));
-                world.insert_resource(FutureComputeResources(future_compute_recourses_wrapper.clone()));
-
-                let future_boids_wrapper: Arc<Mutex<Option<Vec<Boid>>>>;
-                if let Some(future_boids_wrapper_res) = world.remove_resource::<FutureBoid>() {
-                    future_boids_wrapper = future_boids_wrapper_res.0;
-                } else {
-                    // info!("Running the compute");
-                    future_boids_wrapper = Arc::new(Mutex::new(None));
-                
-                    
-                }   
-                
-                #[cfg(not(target_arch = "wasm32"))]
-                {
-                    // env_logger::init();
-                    // boids = 
-                    pollster::block_on(run_compute_inner(future_compute_recourses_wrapper.clone(), cr, future_boids_wrapper.clone()));
-                }
-                #[cfg(target_arch = "wasm32")]
-                {
-                    // std::panic::set_hook(Box::new(console_error_panic_hook::hook));
-                    // console_log::init().expect("could not initialize logger");
-                    //let boids_task =
-                    //wasm_bindgen_futures::spawn_local(run_compute_inner(future_compute_recourses_wrapper.clone(), cr, future_boids_wrapper.clone()));
-                    ComputeTaskPool::get().spawn_local(run_compute_inner(future_compute_recourses_wrapper.clone(), cr, future_boids_wrapper.clone())).detach();
-                    //https://github.com/bevyengine/bevy/discussions/3351
-                    // if let Some(val) = block_on(future::poll_once(&mut boids_task)) {
-                    //     boids = val;
-                    // }
-                    //wasm_bindgen_futures::spawn_local(run_compute_inner(future_compute_recourses_wrapper, cr, dispatch_size));
-                }
-                // app.insert_resource(cr);
-            
-                // println!("Running compute!");
-                // let dispatch_size = 5 as u32;
-                //let mut boids:Vec<Boid>;
-                
-
-                let maybe_boids: Option<Vec<Boid>> = future_boids_wrapper.lock().unwrap().take();
-                match maybe_boids {
-                    Some(boids) => {
-                        info!("Got Results!");
-                        let mut system_state: SystemState<Query<(Entity, &mut InstanceMaterialData)>> = SystemState::new(&mut world);
-                        let mut boid_instances = system_state.get_mut(&mut world);
-
-                        for (_, mut instance_data) in &mut boid_instances {
-                            for (index, instance) in instance_data.0.iter_mut().enumerate() {
-                                if index < NUM_BOIDS as usize {
-                                    let world_pos = Vec3::new(
-                                        20. * (boids[index].pos.x),
-                                        20. * (boids[index].pos.y) + 20 as f32,
-                                        20. * (boids[index].pos.z)
-                                    );
-
-                                    instance.vel = boids[index].vel;
-                                    instance.position = world_pos;
-                                }
-                            }
-                        }
-                    },
-                    None => {
-                        world.insert_resource(FutureBoid(future_boids_wrapper));
-                        // info!("No Boid Vec after compute call!");
-                    }
-                }
-
-                
-
-            },
-            None => {
-                world.insert_resource(future_compute_resources);
-                // info!("Compute Resources not ready yet!");
-                return
-            }
-        }
+        // #[cfg(not(target_arch = "wasm32"))]
+        // {
+        //     // env_logger::init();
+        //     // boids = 
+        //     ComputeTaskPool::get().spawn_local(run_compute_inner(future_compute_recourses_wrapper.clone(), cr, future_boids_wrapper.clone())).detach();
+        //     // pollster::block_on(run_compute_inner(future_compute_recourses_wrapper.clone(), cr, future_boids_wrapper.clone()));
+        // }
     } else {
         //info!("Resource does not exist!");
         return
