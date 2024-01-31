@@ -1,23 +1,17 @@
-use std::{borrow::Cow, str::FromStr};
+use std::borrow::Cow;
 // use wgpu::util::DeviceExt;
 // use wgpu::util::DeviceExt::bin
 use bevy::{
-    core::Pod, ecs::{storage, world, system::SystemState}, prelude::*, render::{
-        extract_resource::{ExtractResource, ExtractResourcePlugin},
+    core::Pod, ecs::system::SystemState, prelude::*, render::{
         renderer::RenderDevice,
         render_resource::*,
-    }, tasks::{Task, block_on, ComputeTaskPool, IoTaskPool}
+    }, tasks::{ComputeTaskPool, IoTaskPool}
 };
 // use bevy::ecs::{system::SystemState};
-use futures_lite::future;
 use std::sync::{Arc, Mutex};
 // use env_logger::fmt::buffer;
 use wgpu::Queue;
-use bytemuck::Zeroable;
 use rand::distributions::{Distribution, Uniform};
-use rand::{thread_rng, Rng};
-
-const OVERFLOW: u32 = 0xffffffff;
 // const NUM_BOIDS: u32 = 4000;
 
 // pub mod shared;
@@ -75,10 +69,8 @@ impl Plugin for ComputePlugin {
         for x in 0..grid.size {
             for y in 0..grid.size {
                 for z in 0..grid.size {
-                    //let grid_idx = x * grid.size.pow(2) + y * grid.size + z;
                     let amount_of_crows = grid.grid[x][y][z].crows.len();
                     for crow in &grid.grid[x][y][z].crows {
-                        //This should just be the idx ideally.
                         crow_idxs.push(crow.clone() as u32);
                     }
                     let current_amount = amount_of_crows_vec.last();
@@ -88,19 +80,12 @@ impl Plugin for ComputePlugin {
                         Some(val) => total_amount += val,
                         None => {},
                     }
-                    // if amount_of_crows > 0 as usize {
-                    //     println!("total_amount: {}, amount_of_crows: {}", total_amount, amount_of_crows);
-                    // }
-                    
-
-                    
-                    
                     amount_of_crows_vec.push(total_amount)
                 }
             }
         }
 
-        app.insert_resource(grid);
+        // app.insert_resource(grid);
 
         let future_compute_recourses_wrapper = Arc::new(Mutex::new(None));
         app.insert_resource(FutureComputeResources(future_compute_recourses_wrapper.clone()));

@@ -4,20 +4,14 @@
 //! 
 //! Add a system to startup in order to have the Resources for the Render Device and the queue
 
+// Crate usages
 use bevy::diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin};
-use bevy::ecs::world;
-use bevy::{gizmos, math::*, prelude::*, pbr::CascadeShadowConfigBuilder, asset::AssetMetaCheck, core::Pod};
-
-use bevy_app_compute::prelude::*;
+use bevy::{math::*, prelude::*, pbr::CascadeShadowConfigBuilder, asset::AssetMetaCheck};
 use bevy_panorbit_camera::{PanOrbitCamera, PanOrbitCameraPlugin};
-use bytemuck::Zeroable;
-
-use rand::distributions::{Distribution, Uniform};
 use rand::{thread_rng, Rng};
 use std::f32::consts::PI;
 
-// const NUM_BOIDS: u32 = 50000;
-
+//Own crate usage
 pub mod shared;
 use shared::*;
 
@@ -33,8 +27,8 @@ fn main() {
     App::new()
         .add_plugins(DefaultPlugins.set(WindowPlugin {
             primary_window: Some(Window {
-                present_mode: bevy::window::PresentMode::AutoNoVsync, // Reduces input lag.
-                fit_canvas_to_parent: true,
+                present_mode: bevy::window::PresentMode::AutoNoVsync, // Doesn't limit framerate.
+                fit_canvas_to_parent: true, //Webapp will turn full screen using this.
                 ..default()
             }),
             ..default()
@@ -48,10 +42,6 @@ fn main() {
         .insert_resource(ClearColor(Color::WHITE))
         .add_systems(Startup, setup)
         .add_systems(Update, system)
-    
-    // #[cfg(target_arch = "wasm32")]
-    // app.add_plugin(FullViewportPlugin);
-
         .run()
 }
 
@@ -92,14 +82,6 @@ fn setup(
         transform: Transform::from_xyz(0., -BOX_SIZE*0.5, 0.),
         ..default()
     });
-
-    // testing cube (delete later)
-    // commands.spawn(PbrBundle {
-    //     mesh: meshes.add(Mesh::from(shape::Cube { size: 4. })),
-    //     material: materials.add(Color::rgb(0.8, 0.7, 0.6).into()),
-    //     transform: Transform::from_xyz(0.0, 0., 0.0),
-    //     ..default()
-    // });
     
     // ambient light
     commands.insert_resource(AmbientLight {

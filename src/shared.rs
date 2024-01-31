@@ -96,18 +96,9 @@ impl Grid {
 
     //Add a crow to the grid by its transform centered around (0,0,0)
     pub fn add_with_transform (&mut self, transform: &Transform, idx: &usize) {
-        //Convert the possible negative coordinates to positive 
-        //meaning that negative coordinates are between 0 and size/2 
-        //and positive coordinates are between size/2 and size
-        // println!("Original Coords x: {}", transform.translation.x);
-        // println!("Original Coords y: {}", transform.translation.y);
-        // println!("Original Coords z: {}", transform.translation.z);
         let x = self.cooridnate_to_grid_coordinate(transform.translation.x);
         let y = self.cooridnate_to_grid_coordinate(transform.translation.y);
         let z = self.cooridnate_to_grid_coordinate(transform.translation.z);
-        // println!("Grid coords x: {}", x);
-        // println!("Grid coords y: {}", y);
-        // println!("Grid coords z: {}", z);
         self.grid[x][y][z].crows.push(*idx);
     }
 
@@ -117,33 +108,6 @@ impl Grid {
         val
         
     }
-
-    //Get all crows in a certain radius around a certain point
-    // fn get_in_radius (&self, point: Vec3, radius: f32) -> Vec<&Transform> {
-    //     let mut crows = Vec::new();
-    //     //Get grid coordinates of the potential affected cells
-    //     let min_x = self.cooridnate_to_grid_coordinate(point.x - radius).max(0);
-    //     let max_x = self.cooridnate_to_grid_coordinate(point.x + radius).min(self.size);
-    //     let min_y = self.cooridnate_to_grid_coordinate(point.y - radius).max(0);
-    //     let max_y = self.cooridnate_to_grid_coordinate(point.y + radius).min(self.size);
-    //     let min_z = self.cooridnate_to_grid_coordinate(point.z - radius).max(0);
-    //     let max_z = self.cooridnate_to_grid_coordinate(point.z + radius).min(self.size);
-    //     //Iterate over all cells in the area grid
-    //     for x in min_x..max_x {
-    //         for y in min_y..max_y {
-    //             for z in min_z..max_z {
-    //                 //Iterate over all crows in the cell
-    //                 for crow in &self.grid[x][y][z].crows {
-    //                     //Check if the crow is in the radius
-    //                     if crow.translation.distance(point) < radius {
-    //                         crows.push(crow);
-    //                     }
-    //                 }
-    //             }
-    //         }
-    //     }
-    //     crows
-    // }
 }
 
 
