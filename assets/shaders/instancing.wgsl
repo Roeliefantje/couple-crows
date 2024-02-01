@@ -1,3 +1,7 @@
+// Instancing shader from the bevy example:
+// https://github.com/bevyengine/bevy/blob/release-0.12.1/assets/shaders/instancing.wgsl
+// Modified to be able to orient the birds towards the velocity
+// Also has a commented line that would modify the color of the crow based on the velocity.
 #import bevy_pbr::mesh_functions::{get_model_matrix, mesh_position_local_to_clip}
 
 struct Vertex {

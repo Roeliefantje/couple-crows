@@ -1,4 +1,6 @@
-// https://github.com/gfx-rs/wgpu-rs/blob/master/examples/boids/compute.wgsl
+// This file is inspired by the boids shader from wgpu:
+// https://github.com/gfx-rs/wgpu/blob/trunk/examples/src/boids/compute.wgsl
+// Modified to work with the grid structure.
 
 struct Params {
     speed: f32,

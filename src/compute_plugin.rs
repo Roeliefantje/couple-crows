@@ -1,20 +1,25 @@
+//! This file is responsible for updating the boids by executing the compute shader.
+//! In order to get this to work on web we have used some Arc pointers.
+//! This file is inspired by multiple examples:
+//! https://github.com/gfx-rs/wgpu/blob/trunk/examples/src/hello_compute/mod.rs
+//! To gain an understanding of how to copy to and read from buffers that are sent to the GPU and back
+//! https://github.com/gfx-rs/wgpu/blob/trunk/examples/src/boids/mod.rs
+//! To modify the first example in order to work with the boids algorithm.
+//! https://github.com/bevyengine/bevy/blob/main/examples/shader/compute_shader_game_of_life.rs
+//! To understand how to modify the wgpu example to bevy and some general understanding of bevys render pass.
+//! https://docs.rs/bevy_render/latest/src/bevy_render/lib.rs.html#70-72
+//! To understand how bevy handles async calls on wasm.
+
 use std::borrow::Cow;
-// use wgpu::util::DeviceExt;
-// use wgpu::util::DeviceExt::bin
 use bevy::{
     core::Pod, ecs::system::SystemState, prelude::*, render::{
         renderer::RenderDevice,
         render_resource::*,
     }, tasks::{ComputeTaskPool, IoTaskPool}
 };
-// use bevy::ecs::{system::SystemState};
 use std::sync::{Arc, Mutex};
-// use env_logger::fmt::buffer;
 use wgpu::Queue;
 use rand::distributions::{Distribution, Uniform};
-// const NUM_BOIDS: u32 = 4000;
-
-// pub mod shared;
 use crate::shared::*;
 
 pub struct ComputePlugin;
@@ -120,7 +125,7 @@ struct FutureComputeResources(Arc<Mutex<Option<ComputeResources>>>);
 struct ComputeResources {
     device: RenderDevice,
     queue: Queue,
-    dt_uniform: Buffer,
+    // dt_uniform: Buffer,
     staging_buffer_boids: Buffer,
     boid_buffers: Vec<Buffer>,
     storage_buffer_aoc: Buffer,
@@ -128,8 +133,8 @@ struct ComputeResources {
     pipeline: ComputePipeline,
     bind_groups: Vec<BindGroup>,
     boids_buffer_size: u64,
-    aoc_buffer_size: u64,
-    cidxs_buffer_size: u64,
+    // aoc_buffer_size: u64,
+    // cidxs_buffer_size: u64,
     current_frame: usize,
 }
 
@@ -241,7 +246,7 @@ async fn prepare_compute(
     let compute_resources: ComputeResources = ComputeResources {
         device: device,
         queue: queue,
-        dt_uniform: dt_buffer,
+        // dt_uniform: dt_buffer,
         staging_buffer_boids: staging_buffer_boids,
         boid_buffers: boids_storage_buffers,
         storage_buffer_aoc: storage_buffer_aoc,
@@ -249,8 +254,8 @@ async fn prepare_compute(
         pipeline: compute_pipeline,
         bind_groups: bindgroups,
         boids_buffer_size: boids_size,
-        aoc_buffer_size: grid_aoc_size,
-        cidxs_buffer_size: crowd_idxs_size,
+        // aoc_buffer_size: grid_aoc_size,
+        // cidxs_buffer_size: crowd_idxs_size,
         current_frame: 0
     };
 
@@ -345,7 +350,6 @@ fn update_boids(
 
 
 fn run_compute( 
-    // mut boid_instances: Query<(Entity, &mut InstanceMaterialData)>,
     world: &mut World,
 ) {
     // mut boid_instances = world.query<Query<(Entity, &mut InstanceMaterialData)>>();
@@ -361,13 +365,6 @@ fn run_compute(
         //If you are running natively and want to limit the framerate to the boids algorithm, use pollster instead:
         //pollster::block_on(run_compute_inner(future_compute_recourses_wrapper.clone(), cr, future_boids_wrapper.clone()));
 
-        // #[cfg(not(target_arch = "wasm32"))]
-        // {
-        //     // env_logger::init();
-        //     // boids = 
-        //     ComputeTaskPool::get().spawn_local(run_compute_inner(future_compute_recourses_wrapper.clone(), cr, future_boids_wrapper.clone())).detach();
-        //     // pollster::block_on(run_compute_inner(future_compute_recourses_wrapper.clone(), cr, future_boids_wrapper.clone()));
-        // }
     } else {
         //info!("Resource does not exist!");
         return
@@ -408,10 +405,7 @@ async fn run_compute_inner(
                 match current_amount {
                     Some(val) => total_amount += val,
                     None => {},
-                }
-                // if amount_of_crows > 0 as usize {
-                //     println!("total_amount: {}, amount_of_crows: {}", total_amount, amount_of_crows);
-                // }            
+                }         
                 amount_of_crows_vec.push(total_amount)
             }
         }
@@ -428,7 +422,6 @@ async fn run_compute_inner(
     let mut future_boids_inner = future_boids_wrapper.lock().unwrap();
     *future_boids_inner = Some(boids);
     // info!("Finished compute inner");
-    // return boids
 
 }
 

@@ -5,5 +5,5 @@ rustflags = [
 ]
 
 [env]
+# Vulkan gives me constant errors (in the terminal), so I make sure it uses dx12 even though it is less performant.
 WGPU_BACKEND="dx12"
-# RUSTFLAGS="--cfg=web_sys_unstable_apis"

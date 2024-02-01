@@ -1,3 +1,7 @@
+//! This file holds some of the structs and values we have used in multiple files or to easily modify it.
+//! ie. the NUM_BOIDS value is responsible for the amount of crows that will be rendered.
+//! It also holds the grid struct we use in order to speed up the computation of the boid algorithm.
+
 use bevy::{
     prelude::*,
     core::Pod,

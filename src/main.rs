@@ -1,8 +1,6 @@
-//! Example showing how to calculate boids data from compute shaders
-//! For now they are stupid and just fly straight, need to fix this later on.
-//! Reimplementation of https://github.com/gfx-rs/wgpu-rs/blob/master/examples/boids/main.rs
-//! 
-//! Add a system to startup in order to have the Resources for the Render Device and the queue
+//! Main file that is responsible for adding the other files and to run the application.
+//! It also adds some default bevy features that allow for more easy debugging.
+//! The last thing it does is setup the scene.
 
 // Crate usages
 use bevy::diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin};
@@ -48,8 +46,8 @@ fn main() {
 #[derive(Resource)]
 pub struct Animations(Vec<Handle<AnimationClip>>);
 
-
-pub fn run_animation(animations : Res<Animations>, mut players_query : Query<&mut AnimationPlayer, Added<AnimationPlayer>>){
+//Old animation function
+pub fn _run_animation(animations : Res<Animations>, mut players_query : Query<&mut AnimationPlayer, Added<AnimationPlayer>>){
     let mut rng = thread_rng();
     for mut player in &mut players_query{
         player.play(animations.0[0].clone()).repeat();
@@ -119,17 +117,17 @@ fn setup(
     
 
 
-    let mut crows: Vec<CrowBundle> = Vec::with_capacity(NUM_BOIDS as usize);
-    for i in 0..NUM_BOIDS {
-        crows.push(CrowBundle {
-            pbr: SceneBundle {
-                scene: asset_server.load("crow1.glb#Scene0"),
-                transform: Transform::default().with_scale(Vec3::splat(0.02)),
-                ..default()
-            },
-            boid_entity: BoidEntity(i as usize)
-        });
-    }
+    // let mut crows: Vec<CrowBundle> = Vec::with_capacity(NUM_BOIDS as usize);
+    // for i in 0..NUM_BOIDS {
+    //     crows.push(CrowBundle {
+    //         pbr: SceneBundle {
+    //             scene: asset_server.load("crow1.glb#Scene0"),
+    //             transform: Transform::default().with_scale(Vec3::splat(0.02)),
+    //             ..default()
+    //         },
+    //         boid_entity: BoidEntity(i as usize)
+    //     });
+    // }
 
     // commands.spawn_batch(crows);
 

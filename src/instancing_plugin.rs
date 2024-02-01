@@ -1,7 +1,14 @@
+//! This file is responsible for drawing the crows by using GPU instancing.
+//! Gpu instancing is not natively supported by bevy, so we needed to use a workaround:
+//! https://github.com/bevyengine/bevy/issues/89
+//! The file is a modification from the example provided by bevy:
+//! https://github.com/bevyengine/bevy/blob/release-0.12.1/examples/shader/shader_instancing.rs
+//! We have modified some of the instancing data to include the velocity of a crow and we also use our own custom mesh.
+
 use bevy::{
     core_pipeline::core_3d::Transparent3d,
     ecs::{
-        query::QueryItem,
+        // query::QueryItem,
         system::{lifetimeless::*, SystemParamItem},
     },
     pbr::{
@@ -22,7 +29,7 @@ use bevy::{
         Render, RenderApp, RenderSet,
     },
 };
-use bytemuck::{Pod, Zeroable};
+// use bytemuck::{Pod, Zeroable};
 use bevy_obj::ObjPlugin;
 use crate::shared::*;
 
