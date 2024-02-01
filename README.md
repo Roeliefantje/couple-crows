@@ -1,7 +1,7 @@
 # couple-crows
 Simulating the boids behaviour of a "couple" (100k+) crows in the browser using WebAssembly, webGPU.
 
-How to run natively:
+## How to run natively
 - Ensure rust is installed
 - Clone the repository
 - Run the repository
@@ -9,7 +9,7 @@ How to run natively:
 cargo run
 ```
 
-How to run on the web:
+# How to run on the web:
 - Ensure rust is installed
 - Ensure the rust installation has WASM support:
 ```
@@ -26,7 +26,7 @@ cargo run --target wasm32-unknown-unknown
 ```
 
 
-#Notes:
+## Notes:
 The web application has the tendency to randomly crash when the program is starting to execute.
 Still am not entirely sure why but refreshing the page multiple times until it works works for me.
 If there are a lot of wgpu related compile issues the env variable might not be setup correctly:
