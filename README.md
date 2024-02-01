@@ -34,23 +34,10 @@ If there are a lot of wgpu related compile issues the env variable might not be 
 RUSTFLAGS=--cfg=web_sys_unstable_apis
 ```
 
-<!-- 
-How to set up:
-https://bevyengine.org/learn/book/getting-started/setup/#enable-fast-compiles-optional
+The amount of crows part of the application can be changed in shared.rs
 
+In assets/instancing.wgsl is a commented line (67) which allows you to change the color of the crows based on the velocity of the crow.
 
-Windows installation:
+If you want to limit the framerate based on the execution time of the boids algorithm, you can use line 366 instead of 364.
+(This will not compile to web)
 
-- Install the 64-bit.exe: https://www.rust-lang.org/learn/get-started
-- Reload terminal
-- Windows: Ensure you have the latest cargo-binutils as this lets commands like `cargo run` use the LLD linker automatically:
-```
-cargo install -f cargo-binutils
-rustup component add llvm-tools-preview
-```
-- Enable Bevy's Dynamic Linking Feature with the flag` --features bevy/dynamic_linking`
-
-To run the [main.rs](src/main.rs) use: 
-```
-cargo run --features bevy/dynamic_linking
-``` -->
